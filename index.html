@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pixel Runner - 像素跑酷游戏</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+    
+    body {
+      margin: 0;
+      padding: 0;
+      background: #1a1a2e;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: 'Press Start 2P', monospace;
+    }
+    
+    canvas {
+      border: 4px solid #ffeaa7;
+      border-radius: 4px;
+      box-shadow: 0 0 20px rgba(255, 234, 167, 0.3);
+    }
+    
+    .title {
+      color: #ffeaa7;
+      font-size: 24px;
+      margin-bottom: 20px;
+      text-shadow: 0 0 10px rgba(255, 234, 167, 0.5);
+    }
+    
+    .controls {
+      color: #74b9ff;
+      font-size: 10px;
+      margin-top: 20px;
+      text-align: center;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <h1 class="title">PIXEL RUNNER</h1>
+  <canvas id="gameCanvas" width="800" height="512"></canvas>
+  <div class="controls">
+    ← → / A D - 移动<br>
+    空格 / ↑ - 跳跃<br>
+    ↓ / S - 滑行<br>
+    P - 暂停
+  </div>
+
+  <script type="module">
+    import { PixelRunnerGame } from './src/main.js';
+    
+    const game = new PixelRunnerGame('gameCanvas');
+  </script>
+</body>
+</html>
