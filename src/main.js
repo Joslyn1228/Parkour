@@ -12,6 +12,8 @@ import { ItemManager } from './obstacle/ItemManager.js';
 import { GameScene } from './scene/GameScene.js';
 import { GameState } from './state/GameState.js';
 import { GameUI } from './ui/GameUI.js';
+import { LeaderboardUI } from './ui/LeaderboardUI.js';
+import { WeatherManager } from './weather/WeatherManager.js';
 
 export class PixelRunnerGame {
   /**
@@ -28,6 +30,8 @@ export class PixelRunnerGame {
     this.obstacleManager = new ObstacleManager(this.engine.width, this.engine.height);
     this.itemManager = new ItemManager(this.engine.width, this.engine.height);
     this.ui = new GameUI(this.canvas);
+    this.leaderboardUI = new LeaderboardUI(this.canvas, this.gameState.leaderboardManager);
+    this.weatherManager = new WeatherManager(this.engine.width, this.engine.height);
     
     this.player = null;
     this.gameStartTime = 0;
@@ -44,9 +48,11 @@ export class PixelRunnerGame {
   /**
    * 初始化游戏 - 设置事件监听和回调
    */
-  init() {
+  async init() {
     this.setupEventListeners();
     this.setupCallbacks();
+    await this.gameState.leaderboardManager.fetchLeaderboard();
+    this.leaderboardUI.init();
     this.engine.start();
   }
 
@@ -85,8 +91,13 @@ export class PixelRunnerGame {
     this.ui.onPause = () => this.togglePause();
     this.ui.onSpeedChange = (speed) => this.setInitialSpeed(speed);
     this.ui.onObstacleSpeedChange = (multiplier) => this.engine.setObstacleSpeedMultiplier(multiplier);
-    this.ui.onItemSpeedChange = (multiplier) => this.engine.setItemSpeedMultiplier(multiplier);
-    this.ui.onResetDefaults = () => this.engine.resetSpeedMultipliers();
+    this.ui.onLeaderboardToggle = (show) => this.onLeaderboardToggle(show);
+    
+    this.leaderboardUI.onNicknameSubmit = (nickname, score, rank) => {
+      console.log(`[Leaderboard] ${nickname} 获得第 ${rank} 名，分数: ${score}`);
+      this.gameState.saveNickname(nickname);
+      console.log('[GameState] 昵称已保存:', nickname);
+    };
   }
 
   /**
@@ -94,6 +105,13 @@ export class PixelRunnerGame {
    * @param {KeyboardEvent} e - 键盘事件
    */
   handleKeyDown(e) {
+    if (this.leaderboardUI.showNicknameInput) {
+      if (this.leaderboardUI.handleKeyInput(e.key)) {
+        e.preventDefault();
+        return;
+      }
+    }
+    
     this.keys[e.key] = true;
     
     if (!this.gameState.isPlaying()) {
@@ -186,11 +204,12 @@ export class PixelRunnerGame {
       
       this.checkCoffeeBoost(currentTime);
       
-      this.scene.update(speed);
+      this.scene.update(speed, this.gameState.getScore());
       this.obstacleManager.update(currentTime, speed, this.engine.getObstacleSpeedMultiplier(), deltaTime);
       this.itemManager.update(currentTime, speed, deltaTime);
       this.gameState.update(deltaTime);
       this.ui.update(deltaTime);
+      this.weatherManager.update(deltaTime, this.gameState.getScore());
       
       if (this.player) {
         this.player.update(deltaTime);
@@ -224,6 +243,7 @@ export class PixelRunnerGame {
    */
   render(ctx) {
     this.scene.render(ctx);
+    this.weatherManager.render(ctx);
     
     if (this.player && this.gameState.isPlaying()) {
       this.player.render(ctx);
@@ -234,12 +254,21 @@ export class PixelRunnerGame {
     
     if (this.gameState.isMenu()) {
       this.ui.renderStartScreen();
+      if (this.ui.showLeaderboard) {
+        const centerX = this.canvas.width / 2;
+        this.leaderboardUI.renderLeaderboard(centerX, 230);
+      }
     } else if (this.gameState.isPlaying()) {
       this.ui.renderGameHUD();
     } else if (this.gameState.isPaused()) {
       this.ui.renderPauseScreen();
     } else if (this.gameState.isGameOver()) {
       this.ui.renderGameOverScreen();
+      this.leaderboardUI.renderRank(this.gameState.getCurrentRank());
+    }
+    
+    if (this.leaderboardUI.showNicknameInput) {
+      this.leaderboardUI.renderNicknameInput();
     }
   }
 
@@ -308,6 +337,14 @@ export class PixelRunnerGame {
       this.engine.pause();
     }
   }
+  
+  /**
+   * 处理排行榜显示切换
+   * @param {boolean} show - 是否显示排行榜
+   */
+  onLeaderboardToggle(show) {
+    console.log('[DEBUG] Leaderboard toggle:', show);
+  }
 
   /**
    * 处理游戏结束事件
@@ -324,8 +361,42 @@ export class PixelRunnerGame {
     
     this.ui.stopCoffeeEffect();
     
+    if (data.score > data.highScore && data.score > 0) {
+      this.leaderboardUI.lastScore = data.score;
+      const savedNickname = this.gameState.getNickname();
+      
+      if (savedNickname) {
+        this.submitScoreToServer(data.score, savedNickname);
+      } else {
+        this.leaderboardUI.showInput();
+        this.gameState.setCurrentRank(0);
+      }
+    } else {
+      this.gameState.setCurrentRank(0);
+    }
+    
     localStorage.removeItem('pixelRunner_coffeeRemaining');
     localStorage.removeItem('pixelRunner_coffeeActive');
+  }
+  
+  /**
+   * 提交分数到服务器
+   * @param {number} score - 分数
+   * @param {string} nickname - 昵称
+   */
+  async submitScoreToServer(score, nickname) {
+    try {
+      const rank = await this.gameState.leaderboardManager.submitScoreToServer(score, nickname);
+      this.gameState.setCurrentRank(rank);
+      this.leaderboardUI.loadLeaderboard();
+      console.log('[Game] 分数已提交到服务器！昵称:', nickname, '分数:', score, '排名:', rank);
+    } catch (error) {
+      console.error('[Game] 提交分数失败:', error);
+      this.gameState.leaderboardManager.submitScore(score, nickname);
+      this.gameState.setCurrentRank(
+        this.gameState.leaderboardManager.findRank(score)
+      );
+    }
   }
 
   /**

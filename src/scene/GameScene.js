@@ -28,6 +28,13 @@ export class GameScene {
     this.clouds = [];
     this.groundBlocks = [];
     
+    this.dayNightMode = 'day';
+    this.nightOverlayAlpha = 0;
+    this.targetNightAlpha = 0;
+    this.transitionDuration = 500;
+    this.transitionStartTime = 0;
+    this.transitionStartAlpha = 0;
+    
     this.initBackground();
     this.initGround();
   }
@@ -74,8 +81,9 @@ export class GameScene {
   /**
    * 更新场景（每帧调用）
    * @param {number} speed - 当前游戏速度
+   * @param {number} score - 当前分数
    */
-  update(speed) {
+  update(speed, score = 0) {
     this.parallaxOffset += speed * 0.3;
     
     this.clouds.forEach(cloud => {
@@ -93,6 +101,21 @@ export class GameScene {
         block.type = Math.random() > 0.9 ? 'grass' : 'dirt';
       }
     });
+    
+    const targetMode = Math.floor(score / 1000) % 2 === 0 ? 'day' : 'night';
+    
+    if (targetMode !== this.dayNightMode) {
+      this.dayNightMode = targetMode;
+      this.targetNightAlpha = targetMode === 'night' ? 0.4 : 0;
+      this.transitionStartTime = Date.now();
+      this.transitionStartAlpha = this.nightOverlayAlpha;
+    }
+    
+    const elapsed = Date.now() - this.transitionStartTime;
+    const progress = Math.min(elapsed / this.transitionDuration, 1);
+    
+    this.nightOverlayAlpha = this.transitionStartAlpha + 
+      (this.targetNightAlpha - this.transitionStartAlpha) * progress;
   }
 
   /**
@@ -103,6 +126,11 @@ export class GameScene {
     this.renderBackground(ctx);
     this.renderMidground(ctx);
     this.renderForeground(ctx);
+    
+    if (this.nightOverlayAlpha > 0) {
+      ctx.fillStyle = `rgba(20, 20, 60, ${this.nightOverlayAlpha})`;
+      ctx.fillRect(0, 0, this.width, this.groundY);
+    }
   }
 
   /**
@@ -253,6 +281,9 @@ export class GameScene {
    */
   reset() {
     this.parallaxOffset = 0;
+    this.dayNightMode = 'day';
+    this.nightOverlayAlpha = 0;
+    this.targetNightAlpha = 0;
     this.initBackground();
     this.initGround();
   }

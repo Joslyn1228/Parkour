@@ -11,15 +11,16 @@ export class GameUI {
     this.difficulty = 1;
     
     this.obstacleSpeedMultiplier = 1.0;
-    this.itemSpeedMultiplier = 1.0;
     
     this.onStart = null;
     this.onRestart = null;
     this.onSpeedChange = null;
     this.onPause = null;
     this.onObstacleSpeedChange = null;
-    this.onItemSpeedChange = null;
     this.onResetDefaults = null;
+    this.onLeaderboardToggle = null;
+    
+    this.showLeaderboard = true;
     
     this.pixelFont = 'pixel';
     
@@ -63,7 +64,7 @@ export class GameUI {
     
     this.drawSpeedControl(centerX, centerY + 110);
     this.drawObstacleSpeedSlider(centerX, centerY + 165);
-    this.drawItemSpeedSlider(centerX, centerY + 220);
+    this.drawLeaderboardButton(centerX, centerY + 220);
     this.drawResetButton(centerX, centerY + 275);
     
     this.ctx.restore();
@@ -227,7 +228,7 @@ export class GameUI {
     this.ctx.fillStyle = '#ffeaa7';
     this.drawPixelText(`最终分数: ${this.score}`, centerX, centerY - 10, 24);
     
-    if (this.score >= this.highScore) {
+    if (this.score >= this.highScore && this.score > 0) {
       this.ctx.fillStyle = '#fdcb6e';
       this.drawPixelText('🎉 新纪录! 🎉', centerX, centerY + 20, 20);
     } else {
@@ -301,34 +302,21 @@ export class GameUI {
     this.drawPixelText(`${this.obstacleSpeedMultiplier.toFixed(1)}x`, x, sliderY + 22, 12);
   }
   
-  drawItemSpeedSlider(x, y) {
-    const sliderWidth = 180;
-    const sliderHeight = 16;
-    const sliderX = x - sliderWidth / 2;
-    const sliderY = y;
+  drawLeaderboardButton(x, y) {
+    const buttonWidth = 160;
+    const buttonHeight = 32;
+    const buttonX = x - buttonWidth / 2;
+    const buttonY = y;
+    
+    this.ctx.fillStyle = this.showLeaderboard ? '#00b894' : '#636e72';
+    this.ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight);
     
     this.ctx.fillStyle = '#2d3436';
-    this.ctx.fillRect(sliderX, sliderY, sliderWidth, sliderHeight);
-    
-    this.ctx.fillStyle = '#fdcb6e';
-    const fillWidth = ((this.itemSpeedMultiplier - 0.5) / 1.5) * sliderWidth;
-    this.ctx.fillRect(sliderX, sliderY, fillWidth, sliderHeight);
+    this.ctx.fillRect(buttonX + 4, buttonY + 4, buttonWidth - 8, buttonHeight - 8);
     
     this.ctx.fillStyle = '#ffeaa7';
-    const thumbX = sliderX + fillWidth - 8;
-    this.ctx.fillRect(thumbX, sliderY - 4, 16, sliderHeight + 8);
-    
-    this.ctx.fillStyle = '#636e72';
-    this.drawPixelText('道具速度', x, sliderY - 18, 14);
-    
-    this.ctx.fillStyle = '#74b9ff';
-    this.drawPixelText('0.5x', sliderX - 35, sliderY + 5, 10);
-    
-    this.ctx.fillStyle = '#ff6b6b';
-    this.drawPixelText('2.0x', sliderX + sliderWidth + 12, sliderY + 5, 10);
-    
-    this.ctx.fillStyle = '#ffeaa7';
-    this.drawPixelText(`${this.itemSpeedMultiplier.toFixed(1)}x`, x, sliderY + 22, 12);
+    const buttonText = this.showLeaderboard ? '隐藏排行榜' : '显示排行榜';
+    this.drawPixelText(buttonText, x, buttonY + buttonHeight / 2, 10);
   }
   
   drawResetButton(x, y) {
@@ -374,22 +362,13 @@ export class GameUI {
     this.obstacleSpeedMultiplier = Math.max(0.5, Math.min(2.0, multiplier));
   }
   
-  setItemSpeedMultiplier(multiplier) {
-    this.itemSpeedMultiplier = Math.max(0.5, Math.min(2.0, multiplier));
-  }
-  
   getObstacleSpeedMultiplier() {
     return this.obstacleSpeedMultiplier;
-  }
-  
-  getItemSpeedMultiplier() {
-    return this.itemSpeedMultiplier;
   }
   
   resetToDefaults() {
     this.speed = 5;
     this.obstacleSpeedMultiplier = 1.0;
-    this.itemSpeedMultiplier = 1.0;
     if (typeof this.onResetDefaults === 'function') {
       this.onResetDefaults();
     }
@@ -418,7 +397,7 @@ export class GameUI {
     
     const mainSliderY = this.canvas.height / 2 + 110;
     const obstacleSliderY = this.canvas.height / 2 + 165;
-    const itemSliderY = this.canvas.height / 2 + 220;
+    const leaderboardButtonY = this.canvas.height / 2 + 220;
     const buttonY = this.canvas.height / 2 + 275;
     
     const sliderX = centerX - sliderWidth / 2;
@@ -441,12 +420,15 @@ export class GameUI {
       }
     }
     
-    if (x >= sliderX && x <= sliderX + sliderWidth &&
-        y >= itemSliderY && y <= itemSliderY + sliderHeight) {
-      const newMultiplier = 0.5 + ((x - sliderX) / sliderWidth) * 1.5;
-      this.itemSpeedMultiplier = newMultiplier;
-      if (typeof this.onItemSpeedChange === 'function') {
-        this.onItemSpeedChange(newMultiplier);
+    const leaderboardButtonWidth = 160;
+    const leaderboardButtonHeight = 32;
+    const leaderboardButtonX = centerX - leaderboardButtonWidth / 2;
+    
+    if (x >= leaderboardButtonX && x <= leaderboardButtonX + leaderboardButtonWidth &&
+        y >= leaderboardButtonY && y <= leaderboardButtonY + leaderboardButtonHeight) {
+      this.showLeaderboard = !this.showLeaderboard;
+      if (typeof this.onLeaderboardToggle === 'function') {
+        this.onLeaderboardToggle(this.showLeaderboard);
       }
     }
     
@@ -458,6 +440,18 @@ export class GameUI {
         y >= buttonY && y <= buttonY + buttonHeight) {
       this.resetToDefaults();
     }
+  }
+  
+  toggleLeaderboard() {
+    this.showLeaderboard = !this.showLeaderboard;
+    if (typeof this.onLeaderboardToggle === 'function') {
+      this.onLeaderboardToggle(this.showLeaderboard);
+    }
+    return this.showLeaderboard;
+  }
+  
+  getShowLeaderboard() {
+    return this.showLeaderboard;
   }
 }
 
