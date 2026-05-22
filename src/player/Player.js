@@ -317,14 +317,10 @@ export class Player {
       }
       this.slideTimer += deltaTime;
       
-      // 条件1: 滑行持续时间达到阈值（800ms）
       if (this.slideTimer >= this.slideDuration) {
-        console.log(`[Player] 滑行超时结束 - 持续时间: ${this.slideTimer}ms`);
         this.endSlide(this.velocityX !== 0 ? 'running' : 'idle');
       }
-      // 条件2: 释放按键后延迟结束
       else if (!this.slideKeyPressed && this.slideTimer >= 150) {
-        console.log(`[Player] 按键释放结束滑行 - 持续时间: ${this.slideTimer}ms`);
         this.endSlide(this.velocityX !== 0 ? 'running' : 'idle');
       }
     } else {

@@ -107,10 +107,82 @@ export class LeaderboardManager {
     this.storage = new StorageManager();
     this.maxEntries = 10;
     this.apiBase = 'http://localhost:3000/api';
+    this.socket = null;
     
     this.leaderboard = this.loadLeaderboard();
     
     this.onLeaderboardUpdate = null;
+    
+    this.connectWebSocket();
+    this.setupLocalStorageListener();
+    this.setupVisibilityChangeListener();
+  }
+  
+  connectWebSocket() {
+    if (typeof io !== 'undefined') {
+      this.socket = io('http://localhost:3000');
+      
+      this.socket.on('connect', () => {
+        console.log('[LeaderboardManager] WebSocket 连接成功');
+        this.fetchLeaderboard();
+      });
+      
+      this.socket.on('leaderboardUpdate', (data) => {
+        console.log('[LeaderboardManager] 收到排行榜更新:', data);
+        this.leaderboard = data;
+        this.saveLeaderboard();
+        
+        if (typeof this.onLeaderboardUpdate === 'function') {
+          this.onLeaderboardUpdate(this.leaderboard);
+        }
+      });
+      
+      this.socket.on('disconnect', () => {
+        console.log('[LeaderboardManager] WebSocket 连接断开');
+      });
+      
+      this.socket.on('connect_error', (error) => {
+        console.warn('[LeaderboardManager] WebSocket 连接失败:', error.message);
+      });
+    } else {
+      console.warn('[LeaderboardManager] Socket.IO 客户端未加载');
+    }
+  }
+  
+  setupLocalStorageListener() {
+    const self = this;
+    window.addEventListener('storage', (event) => {
+      if (event.key === this.storageKey && event.newValue) {
+        console.log('[LeaderboardManager] 检测到 localStorage 变化');
+        try {
+          const data = JSON.parse(event.newValue);
+          if (Array.isArray(data)) {
+            self.leaderboard = data;
+            
+            if (typeof self.onLeaderboardUpdate === 'function') {
+              self.onLeaderboardUpdate(self.leaderboard);
+            }
+          }
+        } catch (error) {
+          console.warn('[LeaderboardManager] 解析 localStorage 数据失败:', error);
+        }
+      }
+    });
+  }
+  
+  setupVisibilityChangeListener() {
+    const self = this;
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        console.log('[LeaderboardManager] 页面变为可见，刷新排行榜数据');
+        self.fetchLeaderboard();
+      }
+    });
+    
+    window.addEventListener('focus', () => {
+      console.log('[LeaderboardManager] 窗口获得焦点，刷新排行榜数据');
+      self.fetchLeaderboard();
+    });
   }
 
   loadLeaderboard() {
@@ -325,10 +397,6 @@ export class GameState {
     
     this.score = 0;
     
-    this.highScore = this.loadHighScore();
-    
-    this.playerNickname = this.loadNickname();
-    
     this.scoreMultiplier = 1;
     
     this.gameTime = 0;
@@ -340,7 +408,35 @@ export class GameState {
     this.onGameOver = null;
     
     this.leaderboardManager = new LeaderboardManager();
+    
+    this.highScore = this.loadHighScore();
+    
+    this.playerNickname = this.loadNickname();
+    
     this.currentRank = 0;
+    
+    this.setupLocalStorageSync();
+  }
+  
+  setupLocalStorageSync() {
+    const self = this;
+    
+    window.addEventListener('storage', (event) => {
+      if (event.key === 'pixelRunner_highScore' && event.newValue) {
+        console.log('[GameState] 检测到最高分变化');
+        self.highScore = parseInt(event.newValue, 10) || 0;
+        
+        if (typeof self.onScoreChange === 'function') {
+          self.onScoreChange(self.score);
+        }
+      } else if (event.key === 'pixelRunner_playerNickname' && event.newValue) {
+        console.log('[GameState] 检测到昵称变化');
+        const nickname = event.newValue.trim();
+        if (nickname.length >= 2 && nickname.length <= 12) {
+          self.playerNickname = nickname;
+        }
+      }
+    });
   }
 
   /**

@@ -12,18 +12,13 @@ export class SpeedControl {
    * 构造函数 - 初始化速度控制系统
    */
   constructor() {
-    this.baseSpeed = 0.8;
-    this.currentSpeed = 0.8;
-    this.maxSpeed = 4;
-    this.minSpeed = 0.5;
+    this.baseSpeed = 2;
+    this.currentSpeed = 2;
+    this.maxSpeed = 15;
+    this.minSpeed = 2;
     
     this.acceleration = 0.0003;
-    this.deceleration = 0.01;
     
-    this.speedIncrementInterval = 15000;
-    this.speedIncrementAmount = 0.1;
-    
-    this.lastIncrementTime = 0;
     this.lastFrameTime = 0;
     
     this.onSpeedChange = null;
@@ -67,11 +62,6 @@ export class SpeedControl {
     }
     this.lastFrameTime = currentTime;
     
-    if (currentTime - this.lastIncrementTime >= this.speedIncrementInterval) {
-      this.increaseSpeed();
-      this.lastIncrementTime = currentTime;
-    }
-    
     this.checkTemporaryBoost();
   }
 
@@ -84,7 +74,6 @@ export class SpeedControl {
       const timeFactor = deltaTime / (1000 / this.targetFPS);
       const speedIncrease = this.acceleration * deltaTime * timeFactor;
       this.currentSpeed = Math.min(this.currentSpeed + speedIncrease, this.maxSpeed);
-      console.log('[SpeedControl] applyContinuousAcceleration - deltaTime:', deltaTime, 'increase:', speedIncrease, 'currentSpeed:', this.currentSpeed);
       this.notifySpeedChange();
     }
   }

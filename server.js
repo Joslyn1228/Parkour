@@ -2,8 +2,18 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
+const { Server } = require('socket.io');
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
@@ -35,7 +45,21 @@ function saveLeaderboard(data) {
   }
 }
 
+function broadcastLeaderboard() {
+  io.emit('leaderboardUpdate', leaderboard);
+}
+
 let leaderboard = loadLeaderboard();
+
+io.on('connection', (socket) => {
+  console.log('客户端已连接:', socket.id);
+  
+  socket.emit('leaderboardUpdate', leaderboard);
+  
+  socket.on('disconnect', () => {
+    console.log('客户端已断开连接:', socket.id);
+  });
+});
 
 app.get('/api/leaderboard', (req, res) => {
   res.json(leaderboard);
@@ -79,6 +103,8 @@ app.post('/api/leaderboard', (req, res) => {
   
   saveLeaderboard(leaderboard);
   
+  broadcastLeaderboard();
+  
   const rank = leaderboard.findIndex(entry => entry.nickname === trimmedNickname) + 1;
   
   res.json({
@@ -91,9 +117,10 @@ app.post('/api/leaderboard', (req, res) => {
 app.get('/api/leaderboard/clear', (req, res) => {
   leaderboard = [];
   saveLeaderboard(leaderboard);
+  broadcastLeaderboard();
   res.json({ success: true, message: '排行榜已清空' });
 });
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`服务器运行在 http://localhost:${PORT}`);
 });

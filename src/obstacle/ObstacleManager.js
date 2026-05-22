@@ -313,9 +313,7 @@ export class ObstacleManager {
    * @param {CanvasRenderingContext2D} ctx - 画布上下文
    */
   render(ctx) {
-    console.log('[ObstacleManager] render - rendering', this.obstacles.length, 'obstacles');
     this.obstacles.forEach(obstacle => {
-      console.log('[ObstacleManager] rendering obstacle:', obstacle.typeId, 'at', obstacle.x, obstacle.y);
       obstacle.render(ctx);
     });
   }

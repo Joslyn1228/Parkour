@@ -51,9 +51,35 @@ export class PixelRunnerGame {
   async init() {
     this.setupEventListeners();
     this.setupCallbacks();
-    await this.gameState.leaderboardManager.fetchLeaderboard();
+    await this.syncGameData();
+    this.setupLeaderboardSync();
     this.leaderboardUI.init();
     this.engine.start();
+  }
+  
+  async syncGameData() {
+    try {
+      const serverLeaderboard = await this.gameState.leaderboardManager.fetchLeaderboard();
+      console.log('[Game] 已从服务器同步排行榜数据');
+      
+      const localHighScore = this.gameState.highScore;
+      const serverHighScore = serverLeaderboard.length > 0 ? serverLeaderboard[0].score : 0;
+      
+      if (serverHighScore > localHighScore) {
+        this.gameState.highScore = serverHighScore;
+        localStorage.setItem('pixelRunner_highScore', serverHighScore.toString());
+        console.log('[Game] 已从服务器更新最高分:', serverHighScore);
+      }
+    } catch (error) {
+      console.warn('[Game] 同步游戏数据失败:', error.message);
+    }
+  }
+  
+  setupLeaderboardSync() {
+    this.gameState.leaderboardManager.onLeaderboardUpdate = (leaderboard) => {
+      console.log('[Game] 排行榜数据已更新');
+      this.leaderboardUI.loadLeaderboard();
+    };
   }
 
   /**
@@ -77,8 +103,6 @@ export class PixelRunnerGame {
     this.gameState.onScoreChange = (score) => this.ui.setScore(score);
     this.gameState.onGameOver = (data) => this.onGameOver(data);
     
-    this.speedControl.onSpeedChange = (data) => this.onSpeedChange(data);
-    
     this.obstacleManager.onObstacleSpawn = (obstacle) => this.onObstacleSpawn(obstacle);
     this.obstacleManager.onObstacleRemove = (obstacle) => this.onObstacleRemove(obstacle);
     this.obstacleManager.onDifficultyChange = (difficulty) => this.ui.setDifficulty(difficulty);
@@ -89,8 +113,6 @@ export class PixelRunnerGame {
     this.ui.onStart = () => this.startGame();
     this.ui.onRestart = () => this.restartGame();
     this.ui.onPause = () => this.togglePause();
-    this.ui.onSpeedChange = (speed) => this.setInitialSpeed(speed);
-    this.ui.onObstacleSpeedChange = (multiplier) => this.engine.setObstacleSpeedMultiplier(multiplier);
     this.ui.onLeaderboardToggle = (show) => this.onLeaderboardToggle(show);
     
     this.leaderboardUI.onNicknameSubmit = (nickname, score, rank) => {
@@ -400,14 +422,6 @@ export class PixelRunnerGame {
   }
 
   /**
-   * 处理速度变化事件
-   * @param {object} data - 速度数据
-   */
-  onSpeedChange(data) {
-    this.ui.setSpeed(data.current);
-  }
-
-  /**
    * 处理障碍物生成事件
    * @param {object} obstacle - 生成的障碍物
    */
@@ -489,14 +503,6 @@ export class PixelRunnerGame {
     } else if (this.gameState.isPaused()) {
       this.gameState.resume();
     }
-  }
-
-  /**
-   * 设置初始速度
-   * @param {number} speed - 初始速度值
-   */
-  setInitialSpeed(speed) {
-    this.speedControl.setInitialSpeed(speed);
   }
 
   /**

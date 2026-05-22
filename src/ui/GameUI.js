@@ -7,20 +7,16 @@ export class GameUI {
     
     this.score = 0;
     this.highScore = 0;
-    this.speed = 5;
-    this.difficulty = 1;
-    
-    this.obstacleSpeedMultiplier = 1.0;
     
     this.onStart = null;
     this.onRestart = null;
-    this.onSpeedChange = null;
     this.onPause = null;
-    this.onObstacleSpeedChange = null;
-    this.onResetDefaults = null;
     this.onLeaderboardToggle = null;
     
-    this.showLeaderboard = true;
+    this.showLeaderboard = false;
+    this.showGuide = false;
+    this.guideCurrentPage = 0;
+    this.guideTotalPages = 3;
     
     this.pixelFont = 'pixel';
     
@@ -62,13 +58,385 @@ export class GameUI {
     this.drawPixelText('空格 跳跃', centerX, centerY + 55, 16);
     this.drawPixelText('↓ 或 S 滑行', centerX, centerY + 80, 16);
     
-    this.drawSpeedControl(centerX, centerY + 110);
-    this.drawObstacleSpeedSlider(centerX, centerY + 165);
-    this.drawLeaderboardButton(centerX, centerY + 220);
-    this.drawResetButton(centerX, centerY + 275);
+    this.drawLeaderboardButton(centerX, centerY + 110);
+    this.drawGuideButton(centerX, centerY + 150);
+    
+    if (this.showGuide) {
+      this.renderGuideScreen();
+    }
     
     this.ctx.restore();
   }
+
+  drawGuideButton(x, y) {
+    const buttonWidth = 160;
+    const buttonHeight = 32;
+    const buttonX = x - buttonWidth / 2;
+    const buttonY = y;
+    
+    this.ctx.fillStyle = '#9b59b6';
+    this.ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight);
+    
+    this.ctx.fillStyle = '#2d3436';
+    this.ctx.fillRect(buttonX + 4, buttonY + 4, buttonWidth - 8, buttonHeight - 8);
+    
+    this.ctx.fillStyle = '#ffeaa7';
+    this.drawPixelText('图鉴与玩法', x, buttonY + buttonHeight / 2, 10);
+  }
+
+  renderGuideScreen() {
+    this.ctx.save();
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.92)';
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    
+    const guideWidth = Math.min(520, this.canvas.width - 40);
+    const guideHeight = Math.min(620, this.canvas.height - 80);
+    const guideX = (this.canvas.width - guideWidth) / 2;
+    const guideY = (this.canvas.height - guideHeight) / 2;
+    
+    this.ctx.fillStyle = '#1a1a2e';
+    this.ctx.fillRect(guideX, guideY, guideWidth, guideHeight);
+    
+    this.ctx.fillStyle = '#16213e';
+    this.ctx.fillRect(guideX + 6, guideY + 6, guideWidth - 12, guideHeight - 12);
+    
+    this.ctx.fillStyle = '#e94560';
+    this.ctx.fillRect(guideX + 8, guideY + 8, guideWidth - 16, 45);
+    
+    this.ctx.fillStyle = '#ffeaa7';
+    this.ctx.font = 'bold 26px "Press Start 2P", monospace';
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    this.ctx.fillText('图鉴与玩法', this.canvas.width / 2, guideY + 30);
+    
+    const pageTitles = ['操作说明', '道具说明', '障碍物说明'];
+    const pageColors = ['#00d9ff', '#00ff88', '#ff6b9d'];
+    
+    this.ctx.fillStyle = pageColors[this.guideCurrentPage];
+    this.drawPixelText(pageTitles[this.guideCurrentPage], this.canvas.width / 2, guideY + 68, 18);
+    
+    const contentY = guideY + 95;
+    const contentWidth = guideWidth - 24;
+    const contentX = guideX + 12;
+    
+    if (this.guideCurrentPage === 0) {
+      this.renderControlsPage(contentX, contentY, contentWidth);
+    } else if (this.guideCurrentPage === 1) {
+      this.renderItemsPage(contentX, contentY, contentWidth);
+    } else if (this.guideCurrentPage === 2) {
+      this.renderObstaclesPage(contentX, contentY, contentWidth);
+    }
+    
+    this.drawGuideNavigation(guideX, guideY, guideWidth, guideHeight);
+    
+    this.ctx.fillStyle = '#636e72';
+    this.drawPixelText('按 ESC 关闭', this.canvas.width / 2, guideY + guideHeight - 28, 12);
+    
+    this.ctx.restore();
+  }
+
+  renderControlsPage(x, y, width) {
+    const controls = [
+      { key: '空格/↑/W', action: '基础跳跃', desc: '单次按键实现普通跳跃', extra: '', color: '#00ff88' },
+      { key: '空格/↑/W×2', action: '二段跳', desc: '连续两次按键实现二段跳', extra: '', color: '#00d9ff' },
+      { key: '↓ / S', action: '滑行', desc: '蹲下躲避高空障碍物', extra: '', color: '#ffaa00' },
+      { key: '空格/↑/W×3', action: '闪现', desc: '连续三次按键触发闪现', extra: '【2秒无敌效果，4秒冷却时间】', color: '#ff6b9d' }
+    ];
+    
+    controls.forEach((control, index) => {
+      const cardX = x + (index % 2) * (width / 2);
+      const cardY = y + Math.floor(index / 2) * 100;
+      
+      this.ctx.fillStyle = '#16213e';
+      this.ctx.fillRect(cardX, cardY, width / 2 - 8, 90);
+      
+      this.ctx.fillStyle = '#0f3460';
+      this.ctx.fillRect(cardX + 3, cardY + 3, width / 2 - 14, 84);
+      
+      this.ctx.fillStyle = control.color;
+      this.ctx.fillRect(cardX + 4, cardY + 4, 4, 18);
+      
+      this.ctx.fillStyle = '#ffeaa7';
+      this.drawPixelText(control.key, cardX + (width / 4), cardY + 24, 14);
+      
+      this.ctx.fillStyle = '#ffffff';
+      this.drawPixelText(control.action, cardX + (width / 4), cardY + 46, 14);
+      
+      this.ctx.fillStyle = '#b2bec3';
+      this.drawPixelText(control.desc, cardX + (width / 4), cardY + 66, 10);
+      
+      if (control.extra) {
+        this.ctx.fillStyle = '#ff6b9d';
+        this.drawPixelText(control.extra, cardX + (width / 4), cardY + 82, 9);
+      }
+    });
+  }
+
+  renderItemsPage(x, y, width) {
+    const items = [
+      { name: '苹果', color: '#E74C3C', desc: '获得30分', extra: '', icon: 'apple', accent: '#00ff88' },
+      { name: '咖啡', color: '#8B4513', desc: '双倍得分+移动加速', extra: '【有效时间10秒】', icon: 'coffee', accent: '#ffaa00' }
+    ];
+    
+    items.forEach((item, index) => {
+      const cardX = x + index * (width / 2);
+      const cardY = y;
+      
+      this.ctx.fillStyle = '#16213e';
+      this.ctx.fillRect(cardX, cardY, width / 2 - 8, 130);
+      
+      this.ctx.fillStyle = '#0f3460';
+      this.ctx.fillRect(cardX + 3, cardY + 3, width / 2 - 14, 124);
+      
+      this.ctx.fillStyle = item.accent;
+      this.ctx.fillRect(cardX + 4, cardY + 4, 4, 22);
+      
+      const iconX = cardX + (width / 4) - 18;
+      const iconY = cardY + 20;
+      const iconSize = 36;
+      
+      if (item.icon === 'apple') {
+        this.drawGameAppleIcon(this.ctx, iconX, iconY, iconSize);
+      } else {
+        this.drawGameCoffeeIcon(this.ctx, iconX, iconY, iconSize);
+      }
+      
+      this.ctx.fillStyle = '#ffffff';
+      this.drawPixelText(item.name, cardX + (width / 4), cardY + 72, 16);
+      
+      this.ctx.fillStyle = '#b2bec3';
+      this.drawPixelText(item.desc, cardX + (width / 4), cardY + 92, 11);
+      
+      if (item.extra) {
+        this.ctx.fillStyle = '#ff6b9d';
+        this.drawPixelText(item.extra, cardX + (width / 4), cardY + 108, 10);
+      }
+    });
+  }
+
+  renderObstaclesPage(x, y, width) {
+    const obstacles = [
+      { id: 'bird', name: '飞鸟', color: '#E17055', desc: '低空飞行障碍物，需滑行躲避', type: 'low' },
+      { id: 'bat', name: '蝙蝠', color: '#2D3436', desc: '低空飞行障碍物，需滑行躲避', type: 'low' },
+      { id: 'barrier', name: '障碍门', color: '#00CEC9', desc: '低空障碍，需滑行或二段跳', type: 'low' },
+      { id: 'purple_block', name: '紫色方块', color: '#6C5CE7', desc: '可跳跃的浮动平台', type: 'low' },
+      { id: 'cloud_obstacle', name: '云朵障碍', color: '#DFE6E9', desc: '中高空障碍物，需二段跳', type: 'high' },
+      { id: 'butterfly', name: '蝴蝶', color: '#FD79A8', desc: '高空飞行障碍物，需二段跳', type: 'high' },
+      { id: 'balloon', name: '气球', color: '#00B894', desc: '高空障碍物，需二段跳', type: 'high' }
+    ];
+    
+    const typeColors = {
+      ground: '#636e72',
+      low: '#00d9ff',
+      high: '#ff6b9d'
+    };
+    
+    obstacles.forEach((obstacle, index) => {
+      const cardX = x + (index % 2) * (width / 2);
+      const cardY = y + Math.floor(index / 2) * 92;
+      
+      this.ctx.fillStyle = '#16213e';
+      this.ctx.fillRect(cardX, cardY, width / 2 - 8, 86);
+      
+      this.ctx.fillStyle = '#0f3460';
+      this.ctx.fillRect(cardX + 3, cardY + 3, width / 2 - 14, 80);
+      
+      this.ctx.fillStyle = typeColors[obstacle.type];
+      this.ctx.fillRect(cardX + 4, cardY + 4, 4, 20);
+      
+      const iconX = cardX + 16;
+      const iconY = cardY + 16;
+      const iconSize = 28;
+      
+      this.drawObstacleIcon(this.ctx, obstacle.id, obstacle.color, iconX, iconY, iconSize);
+      
+      this.ctx.fillStyle = '#ffffff';
+      this.drawPixelText(obstacle.name, cardX + (width / 4), cardY + 24, 14);
+      
+      this.ctx.fillStyle = '#b2bec3';
+      this.drawPixelText(obstacle.desc, cardX + (width / 4), cardY + 46, 10);
+      
+      this.ctx.fillStyle = typeColors[obstacle.type];
+      const typeText = obstacle.type === 'ground' ? '地面' : obstacle.type === 'low' ? '低空' : '高空';
+      this.drawPixelText(typeText, cardX + (width / 4), cardY + 66, 10);
+    });
+  }
+
+  drawGameAppleIcon(ctx, x, y, size) {
+    ctx.fillStyle = '#E74C3C';
+    ctx.beginPath();
+    ctx.arc(x + size / 2, y + size / 2, size / 2 - 2, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.fillStyle = '#27AE60';
+    ctx.beginPath();
+    ctx.moveTo(x + size / 2, y + 4);
+    ctx.lineTo(x + size / 2 - 5, y);
+    ctx.lineTo(x + size / 2 + 5, y);
+    ctx.closePath();
+    ctx.fill();
+    
+    ctx.fillStyle = '#FFF';
+    ctx.beginPath();
+    ctx.arc(x + size / 2 - 4, y + size / 2 - 2, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  drawGameCoffeeIcon(ctx, x, y, size) {
+    ctx.fillStyle = '#8B4513';
+    ctx.fillRect(x + 2, y + 6, size - 4, size - 6);
+    
+    ctx.fillStyle = '#D2691E';
+    ctx.fillRect(x + 4, y + 8, size - 8, size - 14);
+    
+    ctx.fillStyle = '#FFF';
+    ctx.fillRect(x + 3, y + 3, size - 6, 4);
+    
+    ctx.fillStyle = '#333';
+    ctx.fillRect(x + 6, y, 2, 4);
+    ctx.fillRect(x + size - 8, y, 2, 4);
+  }
+
+  drawObstacleIcon(ctx, id, color, x, y, size) {
+    ctx.fillStyle = color;
+    
+    switch(id) {
+      case 'crate':
+        ctx.fillRect(x, y, size, size);
+        ctx.fillStyle = '#654321';
+        ctx.fillRect(x + 2, y + 2, size - 4, 2);
+        ctx.fillRect(x + 2, y + size - 4, size - 4, 2);
+        ctx.fillRect(x + 2, y + 2, 2, size - 4);
+        ctx.fillRect(x + size - 4, y + 2, 2, size - 4);
+        break;
+      case 'spike':
+        ctx.beginPath();
+        ctx.moveTo(x + size / 2, y);
+        ctx.lineTo(x + size, y + size);
+        ctx.lineTo(x, y + size);
+        ctx.closePath();
+        ctx.fill();
+        break;
+      case 'bird':
+        ctx.fillRect(x + 4, y + 4, 16, 6);
+        ctx.fillStyle = '#D63031';
+        ctx.beginPath();
+        ctx.arc(x + 20, y + 7, 3, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+      case 'bat':
+        ctx.fillStyle = '#2D3436';
+        ctx.beginPath();
+        ctx.ellipse(x + size / 2, y + size / 2, size / 2, size / 2.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+      case 'barrier':
+        ctx.fillRect(x, y, size, size);
+        ctx.fillStyle = '#00B894';
+        ctx.fillRect(x + 2, y + 4, size - 4, 4);
+        ctx.fillRect(x + 2, y + size / 2, size - 4, 4);
+        break;
+      case 'purple_block':
+        ctx.fillRect(x, y, size, size);
+        ctx.fillStyle = '#8E7CC3';
+        ctx.fillRect(x + 2, y + 2, size - 4, 2);
+        ctx.fillRect(x + 2, y + 2, 2, size - 4);
+        break;
+      case 'cloud_obstacle':
+        ctx.beginPath();
+        ctx.arc(x + 8, y + 8, 6, 0, Math.PI * 2);
+        ctx.arc(x + 14, y + 6, 7, 0, Math.PI * 2);
+        ctx.arc(x + 20, y + 8, 6, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+      case 'butterfly':
+        ctx.beginPath();
+        ctx.ellipse(x + size / 2 - 5, y + 5, 5, 4, -0.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(x + size / 2 + 5, y + 5, 5, 4, 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#FDCB6E';
+        ctx.fillRect(x + size / 2 - 1, y + 4, 2, 6);
+        break;
+      case 'balloon':
+        ctx.beginPath();
+        ctx.arc(x + size / 2, y + size / 2 + 2, size / 2 - 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#FFF';
+        ctx.beginPath();
+        ctx.arc(x + size / 2 - 4, y + size / 2 - 2, 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#2D3436';
+        ctx.beginPath();
+        ctx.moveTo(x + size / 2, y + size - 2);
+        ctx.lineTo(x + size / 2 - 4, y + size + 4);
+        ctx.moveTo(x + size / 2, y + size - 2);
+        ctx.lineTo(x + size / 2 + 4, y + size + 4);
+        ctx.stroke();
+        break;
+      case 'floating_spike':
+        ctx.beginPath();
+        ctx.moveTo(x + size / 2, y + size);
+        ctx.lineTo(x + size, y);
+        ctx.lineTo(x, y);
+        ctx.closePath();
+        ctx.fill();
+        break;
+      default:
+        ctx.fillRect(x, y, size, size);
+    }
+  }
+
+  drawGuideNavigation(x, y, width, height) {
+    const navY = y + height - 52;
+    
+    this.ctx.fillStyle = '#ffeaa7';
+    this.drawPixelText(`${this.guideCurrentPage + 1} / ${this.guideTotalPages}`, this.canvas.width / 2, navY, 16);
+    
+    const leftArrowX = x + 25;
+    const rightArrowX = x + width - 35;
+    
+    const pageColors = ['#00d9ff', '#00ff88', '#ff6b9d'];
+    const currentColor = pageColors[this.guideCurrentPage];
+    
+    this.ctx.fillStyle = this.guideCurrentPage > 0 ? currentColor : '#4a5568';
+    this.drawArrow(this.ctx, leftArrowX, navY, 'left');
+    
+    this.ctx.fillStyle = this.guideCurrentPage < this.guideTotalPages - 1 ? currentColor : '#4a5568';
+    this.drawArrow(this.ctx, rightArrowX, navY, 'right');
+    
+    this.ctx.fillStyle = '#16213e';
+    this.ctx.fillRect(x + 60, navY - 12, width - 120, 24);
+    
+    this.ctx.fillStyle = '#0f3460';
+    this.ctx.fillRect(x + 62, navY - 10, width - 124, 20);
+    
+    for (let i = 0; i < this.guideTotalPages; i++) {
+      const dotX = x + width / 2 - 18 + i * 18;
+      this.ctx.fillStyle = i === this.guideCurrentPage ? currentColor : '#4a5568';
+      this.ctx.beginPath();
+      this.ctx.arc(dotX, navY, 5, 0, Math.PI * 2);
+      this.ctx.fill();
+    }
+  }
+
+  drawArrow(ctx, x, y, direction) {
+    ctx.beginPath();
+    if (direction === 'left') {
+      ctx.moveTo(x + 18, y - 10);
+      ctx.lineTo(x, y);
+      ctx.lineTo(x + 18, y + 10);
+    } else {
+      ctx.moveTo(x, y - 10);
+      ctx.lineTo(x + 18, y);
+      ctx.lineTo(x, y + 10);
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  
 
   renderGameHUD() {
     this.ctx.save();
@@ -92,16 +460,8 @@ export class GameUI {
     this.ctx.fillStyle = '#fd79a8';
     this.drawPixelText(`最高分: ${this.highScore}`, 85, 60, 12);
     
-    this.ctx.fillStyle = '#00b894';
-    const speedText = `速度: ${Math.floor(this.speed * 10)}`;
-    this.drawPixelText(speedText, 85, 85, 12);
-    
-    this.ctx.fillStyle = '#e17055';
-    const difficultyText = `难度: ${this.difficulty}`;
-    this.drawPixelText(difficultyText, this.canvas.width - 85, 35, 16);
-    
     this.ctx.fillStyle = '#74b9ff';
-    this.drawPixelText('P 暂停', this.canvas.width - 60, 60, 12);
+    this.drawPixelText('P 暂停', 85, 85, 12);
     
     this.renderCoffeeEffect();
     this.renderAppleNotifications();
@@ -245,63 +605,6 @@ export class GameUI {
     this.ctx.restore();
   }
 
-  drawSpeedControl(x, y) {
-    const sliderWidth = 200;
-    const sliderHeight = 16;
-    const sliderX = x - sliderWidth / 2;
-    const sliderY = y;
-    
-    this.ctx.fillStyle = '#2d3436';
-    this.ctx.fillRect(sliderX, sliderY, sliderWidth, sliderHeight);
-    
-    this.ctx.fillStyle = '#00b894';
-    const fillWidth = ((this.speed - 2) / 18) * sliderWidth;
-    this.ctx.fillRect(sliderX, sliderY, fillWidth, sliderHeight);
-    
-    this.ctx.fillStyle = '#ffeaa7';
-    const thumbX = sliderX + fillWidth - 8;
-    this.ctx.fillRect(thumbX, sliderY - 4, 16, sliderHeight + 8);
-    
-    this.ctx.fillStyle = '#636e72';
-    this.drawPixelText('初始速度', x, sliderY - 20, 14);
-    
-    this.ctx.fillStyle = '#74b9ff';
-    this.drawPixelText('慢', sliderX - 25, sliderY + 5, 12);
-    
-    this.ctx.fillStyle = '#ff6b6b';
-    this.drawPixelText('快', sliderX + sliderWidth + 10, sliderY + 5, 12);
-  }
-  
-  drawObstacleSpeedSlider(x, y) {
-    const sliderWidth = 180;
-    const sliderHeight = 16;
-    const sliderX = x - sliderWidth / 2;
-    const sliderY = y;
-    
-    this.ctx.fillStyle = '#2d3436';
-    this.ctx.fillRect(sliderX, sliderY, sliderWidth, sliderHeight);
-    
-    this.ctx.fillStyle = '#fd79a8';
-    const fillWidth = ((this.obstacleSpeedMultiplier - 0.5) / 1.5) * sliderWidth;
-    this.ctx.fillRect(sliderX, sliderY, fillWidth, sliderHeight);
-    
-    this.ctx.fillStyle = '#ffeaa7';
-    const thumbX = sliderX + fillWidth - 8;
-    this.ctx.fillRect(thumbX, sliderY - 4, 16, sliderHeight + 8);
-    
-    this.ctx.fillStyle = '#636e72';
-    this.drawPixelText('障碍物速度', x, sliderY - 18, 14);
-    
-    this.ctx.fillStyle = '#74b9ff';
-    this.drawPixelText('0.5x', sliderX - 35, sliderY + 5, 10);
-    
-    this.ctx.fillStyle = '#ff6b6b';
-    this.drawPixelText('2.0x', sliderX + sliderWidth + 12, sliderY + 5, 10);
-    
-    this.ctx.fillStyle = '#ffeaa7';
-    this.drawPixelText(`${this.obstacleSpeedMultiplier.toFixed(1)}x`, x, sliderY + 22, 12);
-  }
-  
   drawLeaderboardButton(x, y) {
     const buttonWidth = 160;
     const buttonHeight = 32;
@@ -319,22 +622,6 @@ export class GameUI {
     this.drawPixelText(buttonText, x, buttonY + buttonHeight / 2, 10);
   }
   
-  drawResetButton(x, y) {
-    const buttonWidth = 120;
-    const buttonHeight = 32;
-    const buttonX = x - buttonWidth / 2;
-    const buttonY = y;
-    
-    this.ctx.fillStyle = '#636e72';
-    this.ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight);
-    
-    this.ctx.fillStyle = '#2d3436';
-    this.ctx.fillRect(buttonX + 4, buttonY + 4, buttonWidth - 8, buttonHeight - 8);
-    
-    this.ctx.fillStyle = '#ffeaa7';
-    this.drawPixelText('重置默认', x, buttonY + buttonHeight / 2, 12);
-  }
-
   drawPixelText(text, x, y, size) {
     this.ctx.font = `${size}px "Press Start 2P", monospace`;
     this.ctx.textAlign = 'center';
@@ -350,31 +637,25 @@ export class GameUI {
     this.highScore = highScore;
   }
 
-  setSpeed(speed) {
-    this.speed = speed;
-  }
-
   setDifficulty(difficulty) {
     this.difficulty = difficulty;
   }
-  
-  setObstacleSpeedMultiplier(multiplier) {
-    this.obstacleSpeedMultiplier = Math.max(0.5, Math.min(2.0, multiplier));
-  }
-  
-  getObstacleSpeedMultiplier() {
-    return this.obstacleSpeedMultiplier;
-  }
-  
-  resetToDefaults() {
-    this.speed = 5;
-    this.obstacleSpeedMultiplier = 1.0;
-    if (typeof this.onResetDefaults === 'function') {
-      this.onResetDefaults();
-    }
-  }
 
   handleKeyDown(key) {
+    if (this.showGuide) {
+      if (key === 'ArrowLeft' || key === 'a' || key === 'A') {
+        if (this.guideCurrentPage > 0) {
+          this.guideCurrentPage--;
+        }
+        return;
+      } else if (key === 'ArrowRight' || key === 'd' || key === 'D') {
+        if (this.guideCurrentPage < this.guideTotalPages - 1) {
+          this.guideCurrentPage++;
+        }
+        return;
+      }
+    }
+    
     if (key === 'Enter') {
       if (typeof this.onStart === 'function') {
         this.onStart();
@@ -384,7 +665,9 @@ export class GameUI {
         this.onPause();
       }
     } else if (key === 'Escape') {
-      if (typeof this.onRestart === 'function') {
+      if (this.showGuide) {
+        this.showGuide = false;
+      } else if (typeof this.onRestart === 'function') {
         this.onRestart();
       }
     }
@@ -392,53 +675,49 @@ export class GameUI {
 
   handleMouseClick(x, y) {
     const centerX = this.canvas.width / 2;
-    const sliderWidth = 180;
-    const sliderHeight = 16;
     
-    const mainSliderY = this.canvas.height / 2 + 110;
-    const obstacleSliderY = this.canvas.height / 2 + 165;
-    const leaderboardButtonY = this.canvas.height / 2 + 220;
-    const buttonY = this.canvas.height / 2 + 275;
+    const leaderboardButtonY = this.canvas.height / 2 + 110;
+    const guideButtonY = this.canvas.height / 2 + 150;
     
-    const sliderX = centerX - sliderWidth / 2;
+    const buttonWidth = 160;
+    const buttonHeight = 32;
+    const leaderboardButtonX = centerX - buttonWidth / 2;
     
-    if (x >= sliderX && x <= sliderX + sliderWidth &&
-        y >= mainSliderY && y <= mainSliderY + sliderHeight) {
-      const newSpeed = 2 + ((x - sliderX) / sliderWidth) * 18;
-      this.speed = newSpeed;
-      if (typeof this.onSpeedChange === 'function') {
-        this.onSpeedChange(newSpeed);
-      }
-    }
-    
-    if (x >= sliderX && x <= sliderX + sliderWidth &&
-        y >= obstacleSliderY && y <= obstacleSliderY + sliderHeight) {
-      const newMultiplier = 0.5 + ((x - sliderX) / sliderWidth) * 1.5;
-      this.obstacleSpeedMultiplier = newMultiplier;
-      if (typeof this.onObstacleSpeedChange === 'function') {
-        this.onObstacleSpeedChange(newMultiplier);
-      }
-    }
-    
-    const leaderboardButtonWidth = 160;
-    const leaderboardButtonHeight = 32;
-    const leaderboardButtonX = centerX - leaderboardButtonWidth / 2;
-    
-    if (x >= leaderboardButtonX && x <= leaderboardButtonX + leaderboardButtonWidth &&
-        y >= leaderboardButtonY && y <= leaderboardButtonY + leaderboardButtonHeight) {
+    if (x >= leaderboardButtonX && x <= leaderboardButtonX + buttonWidth &&
+        y >= leaderboardButtonY && y <= leaderboardButtonY + buttonHeight) {
       this.showLeaderboard = !this.showLeaderboard;
       if (typeof this.onLeaderboardToggle === 'function') {
         this.onLeaderboardToggle(this.showLeaderboard);
       }
     }
     
-    const buttonWidth = 120;
-    const buttonHeight = 32;
-    const buttonX = centerX - buttonWidth / 2;
+    if (x >= leaderboardButtonX && x <= leaderboardButtonX + buttonWidth &&
+        y >= guideButtonY && y <= guideButtonY + buttonHeight) {
+      this.showGuide = !this.showGuide;
+      this.guideCurrentPage = 0;
+    }
     
-    if (x >= buttonX && x <= buttonX + buttonWidth &&
-        y >= buttonY && y <= buttonY + buttonHeight) {
-      this.resetToDefaults();
+    if (this.showGuide) {
+      const guideWidth = Math.min(500, this.canvas.width - 40);
+      const guideHeight = Math.min(500, this.canvas.height - 80);
+      const guideX = (this.canvas.width - guideWidth) / 2;
+      const guideY = (this.canvas.height - guideHeight) / 2;
+      const navY = guideY + guideHeight - 50;
+      
+      const leftArrowX = guideX + 20;
+      const rightArrowX = guideX + guideWidth - 30;
+      
+      if (x >= leftArrowX && x <= leftArrowX + 15 && y >= navY - 8 && y <= navY + 8) {
+        if (this.guideCurrentPage > 0) {
+          this.guideCurrentPage--;
+        }
+      }
+      
+      if (x >= rightArrowX && x <= rightArrowX + 15 && y >= navY - 8 && y <= navY + 8) {
+        if (this.guideCurrentPage < this.guideTotalPages - 1) {
+          this.guideCurrentPage++;
+        }
+      }
     }
   }
   
