@@ -35,6 +35,8 @@ export class GameScene {
     this.transitionStartTime = 0;
     this.transitionStartAlpha = 0;
     
+    this.groundSpeed = 0.5;
+    
     this.initBackground();
     this.initGround();
   }
@@ -95,7 +97,7 @@ export class GameScene {
     });
     
     this.groundBlocks.forEach(block => {
-      block.x -= speed;
+      block.x -= this.groundSpeed;
       if (block.x + 32 < 0) {
         block.x = this.width;
         block.type = Math.random() > 0.9 ? 'grass' : 'dirt';

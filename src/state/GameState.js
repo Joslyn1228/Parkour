@@ -106,7 +106,7 @@ export class LeaderboardManager {
     this.storageKey = 'leaderboard';
     this.storage = new StorageManager();
     this.maxEntries = 10;
-    this.apiBase = 'http://localhost:3000/api';
+    this.apiBase = '/api';
     this.socket = null;
     
     this.leaderboard = this.loadLeaderboard();
@@ -120,7 +120,7 @@ export class LeaderboardManager {
   
   connectWebSocket() {
     if (typeof io !== 'undefined') {
-      this.socket = io('http://localhost:3000');
+      this.socket = io();
       
       this.socket.on('connect', () => {
         console.log('[LeaderboardManager] WebSocket 连接成功');

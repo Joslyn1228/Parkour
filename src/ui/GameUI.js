@@ -1,7 +1,10 @@
+import { VolumeControl } from './VolumeControl.js';
+
 export class GameUI {
-  constructor(canvas) {
+  constructor(canvas, audioManager = null) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
+    this.audioManager = audioManager;
     
     this.elements = [];
     
@@ -24,6 +27,9 @@ export class GameUI {
     this.coffeeTimeLeft = 0;
     this.appleNotifications = [];
     
+    this.volumeControl = null;
+    this.showVolumeControl = true;
+    
     this.initElements();
   }
 
@@ -35,6 +41,13 @@ export class GameUI {
       gameOverScreen: null,
       speedSlider: null
     };
+    
+    if (this.audioManager) {
+      this.volumeControl = new VolumeControl(this.audioManager, this.canvas);
+      const volumeX = this.canvas.width - 160;
+      const volumeY = this.canvas.height - 60;
+      this.volumeControl.setPosition(volumeX, volumeY);
+    }
   }
 
   renderStartScreen() {

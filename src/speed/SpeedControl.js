@@ -14,10 +14,10 @@ export class SpeedControl {
   constructor() {
     this.baseSpeed = 2;
     this.currentSpeed = 2;
-    this.maxSpeed = 15;
+    this.maxSpeed = 12;
     this.minSpeed = 2;
     
-    this.acceleration = 0.0003;
+    this.acceleration = 0.000046;
     
     this.lastFrameTime = 0;
     

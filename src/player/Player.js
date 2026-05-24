@@ -11,8 +11,10 @@ export class Player {
    * 构造函数 - 初始化玩家
    * @param {number} x - 初始X坐标
    * @param {number} y - 初始Y坐标
+   * @param {object} audioManager - 音效管理器实例
    */
-  constructor(x, y) {
+  constructor(x, y, audioManager = null) {
+    this.audioManager = audioManager;
     this.x = x;
     this.y = y;
     this.width = 32;
@@ -60,6 +62,9 @@ export class Player {
     this.slideStartTime = null;
     this.slideDuration = 1000;
     this.isSliding = false;
+    
+    // 落地音效追踪
+    this.wasInAir = false;
   }
 
   /**
@@ -109,12 +114,14 @@ export class Player {
       this.onGround = false;
       this.canDoubleJump = true;
       this.setState('jumping');
+      this.audioManager?.playJump(false);
       return true;
     } else if (this.canDoubleJump) {
       this.jumpCount = 2;
       this.velocityY = this.jumpForce * 0.8;
       this.canDoubleJump = false;
       this.setState('jumping');
+      this.audioManager?.playJump(true);
       return true;
     } else if (this.jumpCount >= 2 && this.flashCooldown <= 0 && !this.isFlashing) {
       this.flash();
@@ -142,6 +149,8 @@ export class Player {
     this.setState('flashing');
     
     this.activateInvincibility();
+    
+    this.audioManager?.playFlash();
     
     setTimeout(() => {
       this.isFlashing = false;
@@ -202,6 +211,8 @@ export class Player {
           this.slideGravity = 1.8;
           this.velocityY = Math.max(this.velocityY, 4);
         }
+        
+        this.audioManager?.playSlide();
       }
     }
   }
@@ -330,9 +341,18 @@ export class Player {
     this.x += this.velocityX;
     this.y += this.velocityY;
     
+    // 检测落地状态变化
+    const isCurrentlyInAir = !this.onGround && this.y < 400;
+    
     if (this.y >= 400) {
       this.y = 400;
       this.velocityY = 0;
+      
+      // 播放落地音效（只有从空中落地时才播放）
+      if (this.wasInAir && !this.isFlashing) {
+        this.audioManager?.playLand();
+      }
+      
       this.onGround = true;
       this.canDoubleJump = false;
       this.jumpCount = 0;
@@ -342,6 +362,9 @@ export class Player {
         this.slideTimer = 0;
       }
     }
+    
+    // 更新空中状态追踪
+    this.wasInAir = isCurrentlyInAir;
     
     if (this.state === 'sliding' && this.slideHeight) {
       this.collider.update(this.x, this.y + this.height - this.slideHeight);

@@ -5,18 +5,33 @@ const path = require('path');
 const http = require('http');
 const { Server } = require('socket.io');
 
+// 加载环境变量
+require('dotenv').config();
+
 const app = express();
 const server = http.createServer(app);
+
+// 配置环境变量
+const PORT = process.env.PORT || 3000;
+const NODE_ENV = process.env.NODE_ENV || 'development';
+const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || '*';
+
+// CORS 配置
+const corsOptions = {
+  origin: NODE_ENV === 'production' 
+    ? CLIENT_ORIGIN.split(',').map(o => o.trim())
+    : '*',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+};
+
 const io = new Server(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  }
+  cors: corsOptions,
+  transports: ['websocket', 'polling']
 });
 
-const PORT = process.env.PORT || 3000;
-
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.static(__dirname));
 
@@ -52,12 +67,16 @@ function broadcastLeaderboard() {
 let leaderboard = loadLeaderboard();
 
 io.on('connection', (socket) => {
-  console.log('客户端已连接:', socket.id);
+  if (NODE_ENV === 'development') {
+    console.log('客户端已连接:', socket.id);
+  }
   
   socket.emit('leaderboardUpdate', leaderboard);
   
   socket.on('disconnect', () => {
-    console.log('客户端已断开连接:', socket.id);
+    if (NODE_ENV === 'development') {
+      console.log('客户端已断开连接:', socket.id);
+    }
   });
 });
 
@@ -123,4 +142,5 @@ app.get('/api/leaderboard/clear', (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`服务器运行在 http://localhost:${PORT}`);
+  console.log(`环境: ${NODE_ENV}`);
 });

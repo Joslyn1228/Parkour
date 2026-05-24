@@ -14,6 +14,7 @@ import { GameState } from './state/GameState.js';
 import { GameUI } from './ui/GameUI.js';
 import { LeaderboardUI } from './ui/LeaderboardUI.js';
 import { WeatherManager } from './weather/WeatherManager.js';
+import { AudioManager } from './audio/AudioManager.js';
 
 export class PixelRunnerGame {
   /**
@@ -25,11 +26,12 @@ export class PixelRunnerGame {
     this.canvas = this.engine.canvas;
     
     this.gameState = new GameState();
+    this.audioManager = new AudioManager();
     this.speedControl = new SpeedControl();
     this.scene = new GameScene(this.engine.width, this.engine.height);
     this.obstacleManager = new ObstacleManager(this.engine.width, this.engine.height);
     this.itemManager = new ItemManager(this.engine.width, this.engine.height);
-    this.ui = new GameUI(this.canvas);
+    this.ui = new GameUI(this.canvas, this.audioManager);
     this.leaderboardUI = new LeaderboardUI(this.canvas, this.gameState.leaderboardManager);
     this.weatherManager = new WeatherManager(this.engine.width, this.engine.height);
     
@@ -313,6 +315,7 @@ export class PixelRunnerGame {
           player.canDoubleJump = false;
         }
       } else {
+        this.audioManager.playCollision();
         this.gameState.setState('gameover');
       }
     }
@@ -328,6 +331,8 @@ export class PixelRunnerGame {
    */
   onItemCollect(item) {
     const currentTime = performance.now() - this.gameStartTime;
+    
+    this.audioManager.playItemCollect(item.typeId);
     
     if (item.typeId === 'coffee') {
       this.hasCoffeeBoost = true;
@@ -373,6 +378,8 @@ export class PixelRunnerGame {
    * @param {object} data - 游戏结束数据
    */
   onGameOver(data) {
+    this.audioManager.playGameOver();
+    
     this.ui.setScore(data.score);
     this.ui.setHighScore(data.highScore);
     
@@ -454,7 +461,7 @@ export class PixelRunnerGame {
     this.itemManager.reset();
     this.scene.reset();
     
-    this.player = new Player(100, this.scene.getGroundY() - 48);
+    this.player = new Player(100, this.scene.getGroundY() - 48, this.audioManager);
     this.engine.addEntity(this.player);
     
     this.gameState.setState('playing');
@@ -470,6 +477,8 @@ export class PixelRunnerGame {
     this.ui.stopCoffeeEffect();
     
     this.ui.setHighScore(this.gameState.getHighScore());
+    
+    this.audioManager.playGameStart();
     
     setTimeout(() => {
       console.log('[DEBUG] Forcing obstacle spawn');
