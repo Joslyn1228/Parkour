@@ -116,11 +116,26 @@ export class LeaderboardManager {
     this.connectWebSocket();
     this.setupLocalStorageListener();
     this.setupVisibilityChangeListener();
+    // 在开发环境中全局暴露以便调试（只为开发/排查用）
+    try {
+      const hostname = (window && window.location && window.location.hostname) ? window.location.hostname : '';
+      const isDevHost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '';
+      if (isDevHost) {
+        window.leaderboardManager = this;
+      }
+    } catch (e) {
+      // 非浏览器环境或访问受限时忽略
+    }
   }
   
   connectWebSocket() {
     if (typeof io !== 'undefined') {
       this.socket = io();
+      try {
+        const hostname = (window && window.location && window.location.hostname) ? window.location.hostname : '';
+        const isDevHost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '';
+        if (isDevHost) { window.leaderboardSocket = this.socket; }
+      } catch (e) {}
       
       this.socket.on('connect', () => {
         console.log('[LeaderboardManager] WebSocket 连接成功');
@@ -143,6 +158,14 @@ export class LeaderboardManager {
       
       this.socket.on('connect_error', (error) => {
         console.warn('[LeaderboardManager] WebSocket 连接失败:', error.message);
+      });
+      
+      this.socket.on('reconnect_attempt', (attempt) => {
+        console.log('[LeaderboardManager] 重连尝试:', attempt);
+      });
+
+      this.socket.on('reconnect_failed', () => {
+        console.warn('[LeaderboardManager] 重连失败');
       });
     } else {
       console.warn('[LeaderboardManager] Socket.IO 客户端未加载');

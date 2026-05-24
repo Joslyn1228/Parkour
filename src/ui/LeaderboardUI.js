@@ -12,6 +12,7 @@ export class LeaderboardUI {
     this.leaderboardManager = leaderboardManager;
     
     this.leaderboard = [];
+    this.localHighScore = 0;
     this.lastScore = 0;
     this.currentRank = 0;
     
@@ -27,6 +28,7 @@ export class LeaderboardUI {
    */
   init() {
     this.loadLeaderboard();
+    this.loadLocalHighScore();
   }
 
   /**
@@ -34,6 +36,15 @@ export class LeaderboardUI {
    */
   loadLeaderboard() {
     this.leaderboard = this.leaderboardManager.getLeaderboard();
+  }
+
+  loadLocalHighScore() {
+    try {
+      const saved = localStorage.getItem('pixelRunner_highScore');
+      this.localHighScore = saved ? parseInt(saved, 10) : 0;
+    } catch (e) {
+      this.localHighScore = 0;
+    }
   }
 
   /**
@@ -135,36 +146,44 @@ export class LeaderboardUI {
     
     const entryHeight = 28;
     const boardHeight = Math.max(140, 55 + this.leaderboard.length * entryHeight + 20);
-    
+
     this.ctx.fillStyle = '#2d3436';
     this.ctx.fillRect(x - 150, y, 300, boardHeight);
-    
+
     this.ctx.fillStyle = '#636e72';
     this.ctx.fillRect(x - 145, y + 5, 290, boardHeight - 10);
-    
+
     this.ctx.fillStyle = '#ffeaa7';
     this.drawPixelText('排行榜', x, y + 30, 18);
-    
-    const startY = y + 55;
-    
+
+    // 在排行榜顶部显示本地/我的最高分
+    this.ctx.fillStyle = '#dfe6e9';
+    const myScoreLabel = '我的最高分:';
+    this.drawPixelText(myScoreLabel, x - 40, y + 52, 12);
+    this.ctx.fillStyle = '#ffeaa7';
+    const scoreText = Number.isFinite(this.localHighScore) ? String(this.localHighScore) : '0';
+    this.drawPixelText(scoreText, x + 100, y + 52, 14);
+
+    const startY = y + 80;
+
     for (let i = 0; i < this.leaderboard.length; i++) {
       const entry = this.leaderboard[i];
       const entryY = startY + i * entryHeight;
-      
+
       const rankColors = ['#fdcb6e', '#b2bec3', '#e17055'];
-      this.ctx.fillStyle = rankColors[i];
+      this.ctx.fillStyle = rankColors[i] || '#dfe6e9';
       this.drawPixelText(`${i + 1}.`, x - 120, entryY, 14);
-      
+
       this.ctx.fillStyle = '#dfe6e9';
       const displayName = entry.nickname.length > 10 
         ? entry.nickname.substring(0, 10) + '..' 
         : entry.nickname;
       this.drawPixelText(displayName, x - 20, entryY, 14);
-      
+
       this.ctx.fillStyle = '#ffeaa7';
       this.drawPixelText(`${entry.score}`, x + 100, entryY, 14);
     }
-    
+
     if (this.leaderboard.length === 0) {
       this.ctx.fillStyle = '#636e72';
       this.drawPixelText('暂无记录', x, y + 100, 14);

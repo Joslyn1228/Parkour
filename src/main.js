@@ -66,11 +66,14 @@ export class PixelRunnerGame {
       
       const localHighScore = this.gameState.highScore;
       const serverHighScore = serverLeaderboard.length > 0 ? serverLeaderboard[0].score : 0;
-      
-      if (serverHighScore > localHighScore) {
-        this.gameState.highScore = serverHighScore;
-        localStorage.setItem('pixelRunner_highScore', serverHighScore.toString());
-        console.log('[Game] 已从服务器更新最高分:', serverHighScore);
+
+      // 不自动覆盖本地最高分（localStorage 保存的是个人记录），
+      // 只记录服务器最高分用于在 UI 中显示全局榜单。
+      // 如果需要在界面上显示服务器最高分，可使用 this.serverHighScore。
+      this.serverHighScore = serverHighScore;
+
+      if (serverHighScore > 0 && serverHighScore !== localHighScore) {
+        console.log('[Game] 服务器最高分:', serverHighScore, '本地最高分:', localHighScore);
       }
     } catch (error) {
       console.warn('[Game] 同步游戏数据失败:', error.message);
