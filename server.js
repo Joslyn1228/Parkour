@@ -140,7 +140,7 @@ app.get('/api/leaderboard/clear', (req, res) => {
   res.json({ success: true, message: '排行榜已清空' });
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`服务器运行在 http://localhost:${PORT}`);
   console.log(`环境: ${NODE_ENV}`);
 });
