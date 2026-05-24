@@ -84,6 +84,10 @@ export class PixelRunnerGame {
     this.gameState.leaderboardManager.onLeaderboardUpdate = (leaderboard) => {
       console.log('[Game] 排行榜数据已更新');
       this.leaderboardUI.loadLeaderboard();
+      // 确保本地最高分在 UI 中同步（若用户已清空 localStorage，应显示 0）
+      if (typeof this.leaderboardUI.loadLocalHighScore === 'function') {
+        this.leaderboardUI.loadLocalHighScore();
+      }
     };
   }
 

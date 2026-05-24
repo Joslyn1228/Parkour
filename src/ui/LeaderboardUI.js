@@ -36,6 +36,8 @@ export class LeaderboardUI {
    */
   loadLeaderboard() {
     this.leaderboard = this.leaderboardManager.getLeaderboard();
+    // 每次加载排行榜时也刷新本地最高分（以防排行更新覆盖或时序问题）
+    this.loadLocalHighScore();
   }
 
   loadLocalHighScore() {
