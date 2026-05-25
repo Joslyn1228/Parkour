@@ -1,3 +1,5 @@
+import { StorageManager } from '../storage/StorageManager.js';
+
 /**
  * 存储管理器 - 负责localStorage的封装和管理
  * 提供数据存储、读取和异常处理功能
@@ -412,6 +414,11 @@ export class LeaderboardManager {
  */
 export class GameState {
   /**
+   * 当前应用版本号 - 用于检测旧数据并清理
+   */
+  static APP_VERSION = '1.0.0';
+  
+  /**
    * 构造函数 - 初始化游戏状态
    */
   constructor() {
@@ -430,6 +437,8 @@ export class GameState {
     this.onScoreChange = null;
     this.onGameOver = null;
     
+    this.checkAndCleanOldData();
+    
     this.leaderboardManager = new LeaderboardManager();
     
     this.highScore = this.loadHighScore();
@@ -439,6 +448,40 @@ export class GameState {
     this.currentRank = 0;
     
     this.setupLocalStorageSync();
+    
+    this.saveAppVersion();
+  }
+  
+  /**
+   * 检查并清理旧数据
+   * 当应用版本变更时，清除可能存在的旧测试数据
+   */
+  checkAndCleanOldData() {
+    try {
+      const storedVersion = localStorage.getItem('pixelRunner_appVersion');
+      
+      if (storedVersion !== GameState.APP_VERSION) {
+        console.log('[GameState] 检测到版本变更，清理旧数据...');
+        
+        const storageManager = new StorageManager();
+        const clearedCount = storageManager.clearAllAppData();
+        
+        console.log(`[GameState] 已清除 ${clearedCount} 条旧数据`);
+      }
+    } catch (error) {
+      console.warn('[GameState] 检查版本失败:', error.message);
+    }
+  }
+  
+  /**
+   * 保存当前应用版本
+   */
+  saveAppVersion() {
+    try {
+      localStorage.setItem('pixelRunner_appVersion', GameState.APP_VERSION);
+    } catch (error) {
+      console.warn('[GameState] 保存版本失败:', error.message);
+    }
   }
   
   setupLocalStorageSync() {

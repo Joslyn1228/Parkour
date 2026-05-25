@@ -121,4 +121,31 @@ export class StorageManager {
       return false;
     }
   }
+
+  /**
+   * 清除所有应用相关的数据
+   * 用于重置游戏状态或清理旧数据
+   */
+  clearAllAppData() {
+    try {
+      const keysToRemove = [];
+      
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(this.prefix)) {
+          keysToRemove.push(key);
+        }
+      }
+      
+      keysToRemove.forEach(key => {
+        localStorage.removeItem(key);
+        console.log('[StorageManager] 已清除数据:', key);
+      });
+      
+      return keysToRemove.length;
+    } catch (error) {
+      console.error('[StorageManager] 清除数据失败:', error.message);
+      return 0;
+    }
+  }
 }
