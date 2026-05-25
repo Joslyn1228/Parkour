@@ -187,12 +187,6 @@ export class LeaderboardUI {
     this.ctx.fillStyle = '#636e72';
     this.ctx.fillRect(x - 145, y + 5, 290, boardHeight - 10);
 
-    this.ctx.fillStyle = '#ff6b6b';
-    this.ctx.fillRect(this.closeButton.x, this.closeButton.y, this.closeButton.width, this.closeButton.height);
-    
-    this.ctx.fillStyle = '#ffffff';
-    this.drawPixelText('×', this.closeButton.x + 10, this.closeButton.y + 14, 16);
-
     this.ctx.fillStyle = '#ffeaa7';
     this.drawPixelText('排行榜', x, y + 30, 18);
 
@@ -228,6 +222,12 @@ export class LeaderboardUI {
       this.ctx.fillStyle = '#636e72';
       this.drawPixelText('暂无记录', x, y + 100, 14);
     }
+    
+    this.ctx.fillStyle = '#ff6b6b';
+    this.ctx.fillRect(this.closeButton.x, this.closeButton.y, this.closeButton.width, this.closeButton.height);
+    
+    this.ctx.fillStyle = '#ffffff';
+    this.drawPixelText('×', this.closeButton.x + 10, this.closeButton.y + 14, 16);
     
     this.ctx.restore();
   }
