@@ -397,7 +397,7 @@ export class PixelRunnerGame {
     
     this.ui.stopCoffeeEffect();
     
-    if (data.score > data.highScore && data.score > 0) {
+    if (data.score > 0) {
       this.leaderboardUI.lastScore = data.score;
       const savedNickname = this.gameState.getNickname();
       

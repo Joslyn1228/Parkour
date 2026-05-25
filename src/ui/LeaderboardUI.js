@@ -107,11 +107,17 @@ export class LeaderboardUI {
   /**
    * 提交昵称
    */
-  submitNickname() {
+  async submitNickname() {
     const nickname = this.leaderboardManager.validateNickname(this.nicknameInput);
     
     if (nickname && this.lastScore > 0) {
-      this.currentRank = this.leaderboardManager.submitScore(this.lastScore, nickname);
+      try {
+        const rank = await this.leaderboardManager.submitScoreToServer(this.lastScore, nickname);
+        this.currentRank = rank;
+      } catch (error) {
+        console.error('[LeaderboardUI] 提交到服务器失败，使用本地存储:', error);
+        this.currentRank = this.leaderboardManager.submitScore(this.lastScore, nickname);
+      }
       this.loadLeaderboard();
       
       if (typeof this.onNicknameSubmit === 'function') {
