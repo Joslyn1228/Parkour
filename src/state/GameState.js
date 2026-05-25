@@ -1,5 +1,3 @@
-import { StorageManager } from '../storage/StorageManager.js';
-
 /**
  * 存储管理器 - 负责localStorage的封装和管理
  * 提供数据存储、读取和异常处理功能
@@ -96,6 +94,29 @@ export class StorageManager {
     } catch (error) {
       console.warn('[StorageManager] localStorage不可用:', error.message);
       return false;
+    }
+  }
+
+  clearAllAppData() {
+    try {
+      const keysToRemove = [];
+      
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(this.prefix)) {
+          keysToRemove.push(key);
+        }
+      }
+      
+      keysToRemove.forEach(key => {
+        localStorage.removeItem(key);
+        console.log('[StorageManager] 已清除数据:', key);
+      });
+      
+      return keysToRemove.length;
+    } catch (error) {
+      console.error('[StorageManager] 清除数据失败:', error.message);
+      return 0;
     }
   }
 }
