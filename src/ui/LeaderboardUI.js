@@ -21,6 +21,7 @@ export class LeaderboardUI {
     this.inputFocused = false;
     
     this.onNicknameSubmit = null;
+    this.onClose = null;
   }
 
   /**
@@ -129,6 +130,24 @@ export class LeaderboardUI {
   }
 
   /**
+   * 处理点击事件
+   * @param {number} x - 点击的X坐标
+   * @param {number} y - 点击的Y坐标
+   * @returns {boolean} 是否点击了关闭按钮
+   */
+  handleClick(x, y) {
+    if (this.closeButton &&
+        x >= this.closeButton.x && x <= this.closeButton.x + this.closeButton.width &&
+        y >= this.closeButton.y && y <= this.closeButton.y + this.closeButton.height) {
+      if (typeof this.onClose === 'function') {
+        this.onClose();
+      }
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * 在游戏结算时调用
    * @param {number} score - 最终分数
    */
@@ -155,11 +174,24 @@ export class LeaderboardUI {
     const entryHeight = 28;
     const boardHeight = Math.max(140, 55 + this.leaderboard.length * entryHeight + 20);
 
+    this.closeButton = {
+      x: x + 130,
+      y: y + 15,
+      width: 20,
+      height: 20
+    };
+
     this.ctx.fillStyle = '#2d3436';
     this.ctx.fillRect(x - 150, y, 300, boardHeight);
 
     this.ctx.fillStyle = '#636e72';
     this.ctx.fillRect(x - 145, y + 5, 290, boardHeight - 10);
+
+    this.ctx.fillStyle = '#ff6b6b';
+    this.ctx.fillRect(this.closeButton.x, this.closeButton.y, this.closeButton.width, this.closeButton.height);
+    
+    this.ctx.fillStyle = '#ffffff';
+    this.drawPixelText('×', this.closeButton.x + 10, this.closeButton.y + 14, 16);
 
     this.ctx.fillStyle = '#ffeaa7';
     this.drawPixelText('排行榜', x, y + 30, 18);

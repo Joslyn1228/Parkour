@@ -124,6 +124,10 @@ export class PixelRunnerGame {
     this.ui.onPause = () => this.togglePause();
     this.ui.onLeaderboardToggle = (show) => this.onLeaderboardToggle(show);
     
+    this.leaderboardUI.onClose = () => {
+      this.ui.showLeaderboard = false;
+    };
+    
     this.leaderboardUI.onNicknameSubmit = (nickname, score, rank) => {
       console.log(`[Leaderboard] ${nickname} 获得第 ${rank} 名，分数: ${score}`);
       this.gameState.saveNickname(nickname);
@@ -217,6 +221,11 @@ export class PixelRunnerGame {
     const rect = this.canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
+    
+    if (this.ui.showLeaderboard && this.leaderboardUI.handleClick(x, y)) {
+      return;
+    }
+    
     this.ui.handleMouseClick(x, y);
   }
 
