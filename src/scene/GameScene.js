@@ -1,50 +1,125 @@
 /**
  * 游戏场景类
- * 
+ *
  * 负责渲染游戏背景、地面和视差效果
- * 包含星星、云朵、山脉和地面砖块的渲染
+ * 按分数区间切换四套主题，并管理大小轮进度
  */
 export class GameScene {
-  /**
-   * 构造函数 - 初始化游戏场景
-   * @param {number} gameWidth - 游戏宽度
-   * @param {number} gameHeight - 游戏高度
-   */
+  static SCORE_STEP = 500;
+  static SCORE_TOLERANCE = 50;
+  static TRANSITION_MS = 1500;
+
+  static THEMES = [
+    {
+      id: 1,
+      name: '清晨草地',
+      skyTop: '#87CEEB',
+      skyMid: '#B8E6B8',
+      skyBottom: '#D4EFDF',
+      mountain1: '#6B8E6B',
+      mountain2: '#7A9E7A',
+      groundBase: '#5a4a3a',
+      grassMain: '#4a7c4a',
+      grassLight: '#5a8c5a',
+      grassDark: '#3a6c3a',
+      dirtMain: '#8B4513',
+      dirtDark: '#654321',
+      starAlpha: 0.15,
+      cloudColor: 'rgba(255, 255, 255, 0.65)'
+    },
+    {
+      id: 2,
+      name: '浅蓝天空',
+      skyTop: '#29B6F6',
+      skyMid: '#81D4FA',
+      skyBottom: '#E1F5FE',
+      mountain1: '#5a8aaa',
+      mountain2: '#6a9aba',
+      groundBase: '#4a5a6a',
+      grassMain: '#3a8c7a',
+      grassLight: '#4a9c8a',
+      grassDark: '#2a7c6a',
+      dirtMain: '#7a6a5a',
+      dirtDark: '#5a4a3a',
+      starAlpha: 0.1,
+      cloudColor: 'rgba(255, 255, 255, 0.75)'
+    },
+    {
+      id: 3,
+      name: '黄昏',
+      skyTop: '#FF6B35',
+      skyMid: '#CC6677',
+      skyBottom: '#553366',
+      mountain1: '#4a3a5a',
+      mountain2: '#6a4a5a',
+      groundBase: '#4a3a3a',
+      grassMain: '#6a7c4a',
+      grassLight: '#7a8c5a',
+      grassDark: '#5a6c3a',
+      dirtMain: '#8B5A3C',
+      dirtDark: '#6B4423',
+      starAlpha: 0.35,
+      cloudColor: 'rgba(255, 200, 180, 0.55)'
+    },
+    {
+      id: 4,
+      name: '赛博像素',
+      skyTop: '#0f0c29',
+      skyMid: '#302b63',
+      skyBottom: '#24243e',
+      mountain1: '#e94560',
+      mountain2: '#0f3460',
+      groundBase: '#1a1a2e',
+      grassMain: '#533483',
+      grassLight: '#6a44a0',
+      grassDark: '#3a2560',
+      dirtMain: '#2d1b4e',
+      dirtDark: '#1a0f30',
+      starAlpha: 1,
+      cloudColor: 'rgba(233, 69, 96, 0.35)'
+    }
+  ];
+
   constructor(gameWidth, gameHeight) {
     this.width = gameWidth;
     this.height = gameHeight;
-    
+
     this.layers = {
       background: [],
       midground: [],
       foreground: []
     };
-    
+
     this.parallaxOffset = 0;
-    
     this.groundY = this.height - 64;
-    
+    this.groundSpeed = 0.5;
+
     this.stars = [];
     this.clouds = [];
     this.groundBlocks = [];
-    
-    this.dayNightMode = 'day';
-    this.nightOverlayAlpha = 0;
-    this.targetNightAlpha = 0;
-    this.transitionDuration = 500;
+
+    this.bigRound = 1;
+    this.smallRound = 1;
+    this.lastTriggeredMilestone = 0;
+
+    this.currentThemeId = 1;
+    this.fromTheme = GameScene.THEMES[0];
+    this.toTheme = GameScene.THEMES[0];
+    this.displayTheme = { ...GameScene.THEMES[0] };
+    this.transitionProgress = 1;
     this.transitionStartTime = 0;
-    this.transitionStartAlpha = 0;
-    
-    this.groundSpeed = 0.5;
-    
+
+    this.onRoundChange = null;
+
     this.initBackground();
     this.initGround();
+    this.applyDisplayTheme(GameScene.THEMES[0]);
   }
 
-  /**
-   * 初始化背景元素（星星和云朵）
-   */
   initBackground() {
+    this.stars = [];
+    this.clouds = [];
+
     for (let i = 0; i < 50; i++) {
       this.stars.push({
         x: Math.random() * this.width,
@@ -53,7 +128,7 @@ export class GameScene {
         brightness: Math.random()
       });
     }
-    
+
     for (let i = 0; i < 5; i++) {
       this.clouds.push({
         x: Math.random() * this.width,
@@ -65,13 +140,11 @@ export class GameScene {
     }
   }
 
-  /**
-   * 初始化地面砖块
-   */
   initGround() {
     const blockWidth = 32;
     const blocksCount = Math.ceil(this.width / blockWidth) + 2;
-    
+    this.groundBlocks = [];
+
     for (let i = 0; i < blocksCount; i++) {
       this.groundBlocks.push({
         x: i * blockWidth,
@@ -81,13 +154,140 @@ export class GameScene {
   }
 
   /**
-   * 更新场景（每帧调用）
-   * @param {number} speed - 当前游戏速度
-   * @param {number} score - 当前分数
+   * 根据 milestone 计算大小轮与主题
    */
+  getRoundStateFromMilestone(milestone) {
+    const smallRound = milestone % 4 === 0 ? 1 : milestone % 4 + 1;
+    const bigRound = 1 + Math.floor(milestone / 4);
+    const themeId = smallRound;
+    return { bigRound, smallRound, themeId };
+  }
+
+  applyMilestone(milestone) {
+    const { bigRound, smallRound, themeId } = this.getRoundStateFromMilestone(milestone);
+
+    this.bigRound = bigRound;
+    this.smallRound = smallRound;
+    this.lastTriggeredMilestone = milestone;
+    this.startThemeTransition(themeId);
+
+    if (typeof this.onRoundChange === 'function') {
+      this.onRoundChange(bigRound, smallRound);
+    }
+  }
+
+  checkScoreMilestones(score) {
+    let nextMilestone = this.lastTriggeredMilestone + 1;
+
+    while (true) {
+      const bandLow = GameScene.SCORE_STEP * nextMilestone - GameScene.SCORE_TOLERANCE;
+      const bandHigh = GameScene.SCORE_STEP * nextMilestone + GameScene.SCORE_TOLERANCE;
+      const inBand = score >= bandLow && score <= bandHigh;
+      const skippedPast = score > bandHigh;
+
+      if (inBand || skippedPast) {
+        this.applyMilestone(nextMilestone);
+        nextMilestone++;
+      } else {
+        break;
+      }
+    }
+  }
+
+  startThemeTransition(themeId) {
+    if (themeId === this.currentThemeId && this.transitionProgress >= 1) {
+      return;
+    }
+
+    this.fromTheme = GameScene.THEMES[this.currentThemeId - 1];
+    this.toTheme = GameScene.THEMES[themeId - 1];
+    this.currentThemeId = themeId;
+    this.transitionProgress = 0;
+    this.transitionStartTime = Date.now();
+  }
+
+  updateThemeTransition() {
+    if (this.transitionProgress >= 1) {
+      this.applyDisplayTheme(this.toTheme);
+      return;
+    }
+
+    const elapsed = Date.now() - this.transitionStartTime;
+    this.transitionProgress = Math.min(elapsed / GameScene.TRANSITION_MS, 1);
+    const t = this.transitionProgress;
+
+    this.displayTheme = {
+      id: this.toTheme.id,
+      name: this.toTheme.name,
+      skyTop: this.lerpColor(this.fromTheme.skyTop, this.toTheme.skyTop, t),
+      skyMid: this.lerpColor(this.fromTheme.skyMid, this.toTheme.skyMid, t),
+      skyBottom: this.lerpColor(this.fromTheme.skyBottom, this.toTheme.skyBottom, t),
+      mountain1: this.lerpColor(this.fromTheme.mountain1, this.toTheme.mountain1, t),
+      mountain2: this.lerpColor(this.fromTheme.mountain2, this.toTheme.mountain2, t),
+      groundBase: this.lerpColor(this.fromTheme.groundBase, this.toTheme.groundBase, t),
+      grassMain: this.lerpColor(this.fromTheme.grassMain, this.toTheme.grassMain, t),
+      grassLight: this.lerpColor(this.fromTheme.grassLight, this.toTheme.grassLight, t),
+      grassDark: this.lerpColor(this.fromTheme.grassDark, this.toTheme.grassDark, t),
+      dirtMain: this.lerpColor(this.fromTheme.dirtMain, this.toTheme.dirtMain, t),
+      dirtDark: this.lerpColor(this.fromTheme.dirtDark, this.toTheme.dirtDark, t),
+      starAlpha: this.fromTheme.starAlpha + (this.toTheme.starAlpha - this.fromTheme.starAlpha) * t,
+      cloudColor: this.lerpRgba(this.fromTheme.cloudColor, this.toTheme.cloudColor, t)
+    };
+  }
+
+  applyDisplayTheme(theme) {
+    this.displayTheme = { ...theme };
+    this.fromTheme = theme;
+    this.toTheme = theme;
+    this.transitionProgress = 1;
+  }
+
+  lerpColor(from, to, t) {
+    const f = this.parseHex(from);
+    const target = this.parseHex(to);
+    const r = Math.round(f.r + (target.r - f.r) * t);
+    const g = Math.round(f.g + (target.g - f.g) * t);
+    const b = Math.round(f.b + (target.b - f.b) * t);
+    return `#${this.toHex(r)}${this.toHex(g)}${this.toHex(b)}`;
+  }
+
+  parseHex(hex) {
+    const value = hex.replace('#', '');
+    return {
+      r: parseInt(value.slice(0, 2), 16),
+      g: parseInt(value.slice(2, 4), 16),
+      b: parseInt(value.slice(4, 6), 16)
+    };
+  }
+
+  toHex(n) {
+    return n.toString(16).padStart(2, '0');
+  }
+
+  lerpRgba(from, to, t) {
+    const parse = (rgba) => {
+      const match = rgba.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+      if (!match) return { r: 255, g: 255, b: 255, a: 1 };
+      return {
+        r: Number(match[1]),
+        g: Number(match[2]),
+        b: Number(match[3]),
+        a: match[4] !== undefined ? Number(match[4]) : 1
+      };
+    };
+
+    const f = parse(from);
+    const target = parse(to);
+    const r = Math.round(f.r + (target.r - f.r) * t);
+    const g = Math.round(f.g + (target.g - f.g) * t);
+    const b = Math.round(f.b + (target.b - f.b) * t);
+    const a = f.a + (target.a - f.a) * t;
+    return `rgba(${r}, ${g}, ${b}, ${a.toFixed(2)})`;
+  }
+
   update(speed, score = 0) {
     this.parallaxOffset += speed * 0.3;
-    
+
     this.clouds.forEach(cloud => {
       cloud.x -= cloud.speed * speed;
       if (cloud.x + cloud.width < 0) {
@@ -95,7 +295,7 @@ export class GameScene {
         cloud.y = Math.random() * 100 + 20;
       }
     });
-    
+
     this.groundBlocks.forEach(block => {
       block.x -= this.groundSpeed;
       if (block.x + 32 < 0) {
@@ -103,88 +303,54 @@ export class GameScene {
         block.type = Math.random() > 0.9 ? 'grass' : 'dirt';
       }
     });
-    
-    const targetMode = Math.floor(score / 1000) % 2 === 0 ? 'day' : 'night';
-    
-    if (targetMode !== this.dayNightMode) {
-      this.dayNightMode = targetMode;
-      this.targetNightAlpha = targetMode === 'night' ? 0.4 : 0;
-      this.transitionStartTime = Date.now();
-      this.transitionStartAlpha = this.nightOverlayAlpha;
-    }
-    
-    const elapsed = Date.now() - this.transitionStartTime;
-    const progress = Math.min(elapsed / this.transitionDuration, 1);
-    
-    this.nightOverlayAlpha = this.transitionStartAlpha + 
-      (this.targetNightAlpha - this.transitionStartAlpha) * progress;
+
+    this.checkScoreMilestones(score);
+    this.updateThemeTransition();
   }
 
-  /**
-   * 渲染场景
-   * @param {CanvasRenderingContext2D} ctx - 画布上下文
-   */
   render(ctx) {
     this.renderBackground(ctx);
     this.renderMidground(ctx);
     this.renderForeground(ctx);
-    
-    if (this.nightOverlayAlpha > 0) {
-      ctx.fillStyle = `rgba(20, 20, 60, ${this.nightOverlayAlpha})`;
-      ctx.fillRect(0, 0, this.width, this.groundY);
-    }
   }
 
-  /**
-   * 渲染背景层（星空）
-   * @param {CanvasRenderingContext2D} ctx - 画布上下文
-   */
   renderBackground(ctx) {
+    const theme = this.displayTheme;
     const gradient = ctx.createLinearGradient(0, 0, 0, this.groundY);
-    gradient.addColorStop(0, '#0a0a1a');
-    gradient.addColorStop(0.5, '#1a1a3a');
-    gradient.addColorStop(1, '#2a2a4a');
+    gradient.addColorStop(0, theme.skyTop);
+    gradient.addColorStop(0.5, theme.skyMid);
+    gradient.addColorStop(1, theme.skyBottom);
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, this.width, this.groundY);
-    
+
     this.stars.forEach(star => {
       const twinkle = Math.sin(Date.now() / 500 + star.x) * 0.5 + 0.5;
-      const alpha = star.brightness * twinkle;
+      const alpha = star.brightness * twinkle * theme.starAlpha;
       ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
       ctx.fillRect(star.x, star.y, star.size, star.size);
     });
   }
 
-  /**
-   * 渲染中层（云朵和山脉）
-   * @param {CanvasRenderingContext2D} ctx - 画布上下文
-   */
   renderMidground(ctx) {
+    const theme = this.displayTheme;
+
     this.clouds.forEach(cloud => {
       const offsetX = cloud.x - this.parallaxOffset * 0.2;
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      ctx.fillStyle = theme.cloudColor;
       ctx.beginPath();
       ctx.arc(offsetX + cloud.width * 0.2, cloud.y + cloud.height * 0.5, cloud.height * 0.5, 0, Math.PI * 2);
       ctx.arc(offsetX + cloud.width * 0.5, cloud.y + cloud.height * 0.3, cloud.height * 0.6, 0, Math.PI * 2);
       ctx.arc(offsetX + cloud.width * 0.8, cloud.y + cloud.height * 0.5, cloud.height * 0.4, 0, Math.PI * 2);
       ctx.fill();
     });
-    
+
     const mountainX = (this.width * 0.3 - this.parallaxOffset * 0.1) % (this.width * 1.5) - this.width * 0.25;
-    this.renderMountain(ctx, mountainX, this.groundY - 150, 200, '#3a3a5a');
-    
+    this.renderMountain(ctx, mountainX, this.groundY - 150, 200, theme.mountain1);
+
     const mountainX2 = (this.width * 1.2 - this.parallaxOffset * 0.08) % (this.width * 1.5) - this.width * 0.25;
-    this.renderMountain(ctx, mountainX2, this.groundY - 100, 150, '#4a4a6a');
+    this.renderMountain(ctx, mountainX2, this.groundY - 100, 150, theme.mountain2);
   }
 
-  /**
-   * 渲染山脉
-   * @param {CanvasRenderingContext2D} ctx - 画布上下文
-   * @param {number} x - X坐标
-   * @param {number} y - Y坐标
-   * @param {number} width - 宽度
-   * @param {string} color - 颜色
-   */
   renderMountain(ctx, x, y, width, color) {
     ctx.fillStyle = color;
     ctx.beginPath();
@@ -195,97 +361,62 @@ export class GameScene {
     ctx.fill();
   }
 
-  /**
-   * 渲染前景层（地面）
-   * @param {CanvasRenderingContext2D} ctx - 画布上下文
-   */
   renderForeground(ctx) {
-    ctx.fillStyle = '#5a4a3a';
+    const theme = this.displayTheme;
+
+    ctx.fillStyle = theme.groundBase;
     ctx.fillRect(0, this.groundY + 32, this.width, 32);
-    
+
     this.groundBlocks.forEach(block => {
       if (block.type === 'grass') {
-        this.renderGrassBlock(ctx, block.x);
+        this.renderGrassBlock(ctx, block.x, theme);
       } else {
-        this.renderDirtBlock(ctx, block.x);
+        this.renderDirtBlock(ctx, block.x, theme);
       }
     });
   }
 
-  /**
-   * 渲染草地砖块
-   * @param {CanvasRenderingContext2D} ctx - 画布上下文
-   * @param {number} x - X坐标
-   */
-  renderGrassBlock(ctx, x) {
-    ctx.fillStyle = '#4a7c4a';
+  renderGrassBlock(ctx, x, theme) {
+    ctx.fillStyle = theme.grassMain;
     ctx.fillRect(x, this.groundY, 32, 32);
-    
-    ctx.fillStyle = '#5a8c5a';
+
+    ctx.fillStyle = theme.grassLight;
     ctx.fillRect(x + 4, this.groundY, 24, 4);
-    
-    ctx.fillStyle = '#3a6c3a';
+
+    ctx.fillStyle = theme.grassDark;
     ctx.fillRect(x + 8, this.groundY - 4, 4, 4);
     ctx.fillRect(x + 20, this.groundY - 6, 4, 6);
     ctx.fillRect(x + 14, this.groundY - 3, 4, 3);
   }
 
-  /**
-   * 渲染泥土砖块
-   * @param {CanvasRenderingContext2D} ctx - 画布上下文
-   * @param {number} x - X坐标
-   */
-  renderDirtBlock(ctx, x) {
-    ctx.fillStyle = '#8B4513';
+  renderDirtBlock(ctx, x, theme) {
+    ctx.fillStyle = theme.dirtMain;
     ctx.fillRect(x, this.groundY, 32, 32);
-    
-    ctx.fillStyle = '#654321';
+
+    ctx.fillStyle = theme.dirtDark;
     ctx.fillRect(x + 4, this.groundY + 4, 4, 4);
     ctx.fillRect(x + 24, this.groundY + 24, 4, 4);
     ctx.fillRect(x + 12, this.groundY + 16, 8, 4);
   }
 
-  /**
-   * 添加层元素
-   * @param {string} type - 层类型（background/midground/foreground）
-   * @param {object} element - 要添加的元素
-   */
-  addLayer(type, element) {
-    if (this.layers[type]) {
-      this.layers[type].push(element);
-    }
+  getRoundDisplay() {
+    return {
+      bigRound: this.bigRound,
+      smallRound: this.smallRound
+    };
   }
 
-  /**
-   * 移除层元素
-   * @param {string} type - 层类型
-   * @param {object} element - 要移除的元素
-   */
-  removeLayer(type, element) {
-    if (this.layers[type]) {
-      const index = this.layers[type].indexOf(element);
-      if (index !== -1) {
-        this.layers[type].splice(index, 1);
-      }
-    }
-  }
-
-  /**
-   * 获取地面Y坐标
-   * @returns {number} 地面Y坐标
-   */
   getGroundY() {
     return this.groundY;
   }
 
-  /**
-   * 重置场景
-   */
   reset() {
     this.parallaxOffset = 0;
-    this.dayNightMode = 'day';
-    this.nightOverlayAlpha = 0;
-    this.targetNightAlpha = 0;
+    this.bigRound = 1;
+    this.smallRound = 1;
+    this.lastTriggeredMilestone = 0;
+    this.currentThemeId = 1;
+    this.applyDisplayTheme(GameScene.THEMES[0]);
     this.initBackground();
     this.initGround();
   }

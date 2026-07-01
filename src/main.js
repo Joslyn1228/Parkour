@@ -6,6 +6,7 @@
  */
 import { GameEngine, RenderLayer } from './engine/GameEngine.js';
 import { Player } from './player/Player.js';
+import { SkinManager } from './player/SkinManager.js';
 import { SpeedControl } from './speed/SpeedControl.js';
 import { ObstacleManager } from './obstacle/ObstacleManager.js';
 import { ItemManager } from './obstacle/ItemManager.js';
@@ -18,7 +19,7 @@ import { AudioManager } from './audio/AudioManager.js';
 
 export class PixelRunnerGame {
   /**
-   * 构造函数 - 初始化游戏实例
+   * 构造函�?- 初始化游戏实�?
    * @param {string} canvasId - 画布元素的ID
    */
   constructor(canvasId) {
@@ -34,21 +35,57 @@ export class PixelRunnerGame {
     this.ui = new GameUI(this.canvas, this.audioManager);
     this.leaderboardUI = new LeaderboardUI(this.canvas, this.gameState.leaderboardManager);
     this.weatherManager = new WeatherManager(this.engine.width, this.engine.height);
+    this.skinManager = new SkinManager(this.gameState.getHighScore());
+    this.previewPlayer = new Player(0, 0, this.audioManager);
     
     this.player = null;
     this.gameStartTime = 0;
     
     this.keys = {};
     
-    this.hasCoffeeBoost = false;
-    this.coffeeBoostEndTime = 0;
-    this.scoreMultiplier = 1;
+    this.coffeeBuffs = [];
+    this.COFFEE_MULTIPLIER_STEP = 2;
     
     this.init();
   }
 
+  isDevHost() {
+    const hostname = window.location?.hostname ?? '';
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '';
+  }
+
   /**
-   * 初始化游戏 - 设置事件监听和回调
+   * 开发环境调试：增加分数（用于测试背景切换）
+   * @param {number} points
+   */
+  addDebugScore(points) {
+    if (!this.isDevHost() || !this.gameState.isPlaying()) return;
+
+    this.gameState.addScore(points);
+    const score = this.gameState.getScore();
+    this.scene.checkScoreMilestones(score);
+    this.ui.setRoundDisplay(
+      this.scene.getRoundDisplay().bigRound,
+      this.scene.getRoundDisplay().smallRound
+    );
+    console.log(`[Debug] +${points} 分，当前 ${score}，轮次 ${this.scene.getRoundDisplay().bigRound}/${this.scene.getRoundDisplay().smallRound}`);
+  }
+
+  /**
+   * 开发环境调试：设置最高分（用于测试皮肤解锁）
+   */
+  setDebugHighScore(score) {
+    if (!this.isDevHost()) return;
+
+    this.gameState.highScore = score;
+    localStorage.setItem('pixelRunner_highScore', String(score));
+    this.skinManager.setHighScore(score);
+    this.ui.setHighScore(score);
+    console.log(`[Debug] 最高分设为 ${score}，已解锁 ${this.skinManager.getUnlockedSkins().length} 款皮肤`);
+  }
+
+  /**
+   * 初始化游�?- 设置事件监听和回�?
    */
   async init() {
     this.setupEventListeners();
@@ -56,6 +93,8 @@ export class PixelRunnerGame {
     await this.syncGameData();
     this.setupLeaderboardSync();
     this.leaderboardUI.init();
+    this.ui.setSkinManager(this.skinManager, this.previewPlayer);
+    this.ui.setHighScore(this.gameState.getHighScore());
     this.engine.start();
   }
   
@@ -68,8 +107,8 @@ export class PixelRunnerGame {
       const serverHighScore = serverLeaderboard.length > 0 ? serverLeaderboard[0].score : 0;
 
       // 不自动覆盖本地最高分（localStorage 保存的是个人记录），
-      // 只记录服务器最高分用于在 UI 中显示全局榜单。
-      // 如果需要在界面上显示服务器最高分，可使用 this.serverHighScore。
+      // 只记录服务器最高分用于�?UI 中显示全局榜单�?
+      // 如果需要在界面上显示服务器最高分，可使用 this.serverHighScore�?
       this.serverHighScore = serverHighScore;
 
       if (serverHighScore > 0 && serverHighScore !== localHighScore) {
@@ -84,7 +123,7 @@ export class PixelRunnerGame {
     this.gameState.leaderboardManager.onLeaderboardUpdate = (leaderboard) => {
       console.log('[Game] 排行榜数据已更新');
       this.leaderboardUI.loadLeaderboard();
-      // 确保本地最高分在 UI 中同步（若用户已清空 localStorage，应显示 0）
+      // 确保本地最高分�?UI 中同步（若用户已清空 localStorage，应显示 0�?
       if (typeof this.leaderboardUI.loadLocalHighScore === 'function') {
         this.leaderboardUI.loadLocalHighScore();
       }
@@ -92,7 +131,7 @@ export class PixelRunnerGame {
   }
 
   /**
-   * 设置事件监听器 - 键盘和鼠标事件
+   * 设置事件监听�?- 键盘和鼠标事�?
    */
   setupEventListeners() {
     window.addEventListener('keydown', (e) => this.handleKeyDown(e));
@@ -114,6 +153,10 @@ export class PixelRunnerGame {
     
     this.obstacleManager.onObstacleSpawn = (obstacle) => this.onObstacleSpawn(obstacle);
     this.obstacleManager.onObstacleRemove = (obstacle) => this.onObstacleRemove(obstacle);
+    this.scene.onRoundChange = (bigRound, smallRound) => {
+      this.ui.setRoundDisplay(bigRound, smallRound);
+    };
+
     this.obstacleManager.onDifficultyChange = (difficulty) => this.ui.setDifficulty(difficulty);
     
     this.itemManager.onItemSpawn = (item) => this.onItemSpawn(item);
@@ -129,9 +172,9 @@ export class PixelRunnerGame {
     };
     
     this.leaderboardUI.onNicknameSubmit = (nickname, score, rank) => {
-      console.log(`[Leaderboard] ${nickname} 获得第 ${rank} 名，分数: ${score}`);
+      console.log(`[Leaderboard] ${nickname} 获得�?${rank} 名，分数: ${score}`);
       this.gameState.saveNickname(nickname);
-      console.log('[GameState] 昵称已保存:', nickname);
+      console.log('[GameState] 昵称已保�?', nickname);
     };
   }
 
@@ -150,6 +193,15 @@ export class PixelRunnerGame {
     this.keys[e.key] = true;
     
     if (!this.gameState.isPlaying()) {
+      if (this.gameState.isPaused()) {
+        if (e.key === 'p' || e.key === 'P') {
+          this.togglePause();
+        } else if (e.key === 'Escape') {
+          this.restartGame();
+        }
+        return;
+      }
+
       this.ui.handleKeyDown(e.key);
       return;
     }
@@ -180,6 +232,11 @@ export class PixelRunnerGame {
       case 'p':
       case 'P':
         this.togglePause();
+        break;
+      case ']':
+        if (this.isDevHost()) {
+          this.addDebugScore(500);
+        }
         break;
     }
   }
@@ -230,8 +287,8 @@ export class PixelRunnerGame {
   }
 
   /**
-   * 更新游戏状态（每帧调用）
-   * @param {number} deltaTime - 帧间隔时间（毫秒）
+   * 更新游戏状态（每帧调用�?
+   * @param {number} deltaTime - 帧间隔时间（毫秒�?
    */
   update(deltaTime) {
     if (isNaN(deltaTime) || deltaTime <= 0) return;
@@ -265,21 +322,46 @@ export class PixelRunnerGame {
   }
   
   /**
-   * 检查咖啡加速效果是否结束
+   * 检查咖啡加速效果是否结�?
    * @param {number} currentTime - 当前游戏时间
    */
   checkCoffeeBoost(currentTime) {
-    if (this.hasCoffeeBoost && currentTime >= this.coffeeBoostEndTime) {
-      this.hasCoffeeBoost = false;
-      this.gameState.setScoreMultiplier(1);
-      this.speedControl.removeTemporaryBoost();
-      console.log('[DEBUG] Coffee boost ended');
+    const before = this.coffeeBuffs.length;
+    this.coffeeBuffs = this.coffeeBuffs.filter(buff => buff.endTime > currentTime);
+
+    if (this.coffeeBuffs.length !== before) {
+      this.syncCoffeeEffects(currentTime);
+    } else {
+      this.ui.setCoffeeBuffs(this.getCoffeeBuffTimeLeft(currentTime));
     }
+  }
+
+  getCoffeeBuffTimeLeft(currentTime) {
+    return this.coffeeBuffs.map(buff => Math.max(0, buff.endTime - currentTime));
+  }
+
+  getCoffeeScoreMultiplier() {
+    const count = this.coffeeBuffs.length;
+    return count === 0 ? 1 : count * this.COFFEE_MULTIPLIER_STEP;
+  }
+
+  syncCoffeeEffects(currentTime) {
+    this.gameState.setScoreMultiplier(this.getCoffeeScoreMultiplier());
+    this.ui.setScoreMultiplier(this.getCoffeeScoreMultiplier());
+    this.ui.setCoffeeBuffs(this.getCoffeeBuffTimeLeft(currentTime));
+  }
+
+  clearCoffeeBuffs() {
+    this.coffeeBuffs = [];
+    this.gameState.setScoreMultiplier(1);
+    this.ui.setScoreMultiplier(1);
+    this.ui.setCoffeeBuffs([]);
+    this.speedControl.removeTemporaryBoost();
   }
 
   /**
    * 渲染游戏画面
-   * @param {CanvasRenderingContext2D} ctx - 画布上下文
+   * @param {CanvasRenderingContext2D} ctx - 画布上下�?
    */
   render(ctx) {
     this.scene.render(ctx);
@@ -298,10 +380,11 @@ export class PixelRunnerGame {
         const centerX = this.canvas.width / 2;
         this.leaderboardUI.renderLeaderboard(centerX, 230);
       }
-    } else if (this.gameState.isPlaying()) {
+    } else if (this.gameState.isPlaying() || this.gameState.isPaused()) {
       this.ui.renderGameHUD();
-    } else if (this.gameState.isPaused()) {
-      this.ui.renderPauseScreen();
+      if (this.gameState.isPaused()) {
+        this.ui.renderPauseScreen();
+      }
     } else if (this.gameState.isGameOver()) {
       this.ui.renderGameOverScreen();
       this.leaderboardUI.renderRank(this.gameState.getCurrentRank());
@@ -341,6 +424,17 @@ export class PixelRunnerGame {
     }
   }
   
+  onPlayerSlideStart() {
+    if (!this.gameState.isPlaying()) return;
+
+    const rewardPoints = this.gameState.registerCrouch();
+    this.ui.setCrouchCount(this.gameState.getCrouchCount());
+
+    if (rewardPoints > 0) {
+      this.ui.addAppleNotification(rewardPoints);
+    }
+  }
+
   /**
    * 处理道具收集事件
    * @param {object} item - 被收集的道具
@@ -351,12 +445,10 @@ export class PixelRunnerGame {
     this.audioManager.playItemCollect(item.typeId);
     
     if (item.typeId === 'coffee') {
-      this.hasCoffeeBoost = true;
-      this.coffeeBoostEndTime = currentTime + item.duration;
-      this.gameState.setScoreMultiplier(2);
-      this.speedControl.addTemporaryBoost(0.2, item.duration);
-      this.ui.startCoffeeEffect(item.duration);
-      console.log('[DEBUG] Coffee collected - duration:', item.duration);
+      this.coffeeBuffs.push({ endTime: currentTime + item.duration });
+      this.speedControl.addTemporaryBoost(0.2, item.duration, currentTime);
+      this.syncCoffeeEffects(currentTime);
+      console.log('[DEBUG] Coffee collected - active count:', this.coffeeBuffs.length, 'multiplier:', this.getCoffeeScoreMultiplier());
     } else if (item.typeId === 'apple') {
       console.log('[DEBUG] Apple collected - scoreAmount:', item.scoreAmount);
       this.gameState.addScore(item.scoreAmount);
@@ -365,9 +457,9 @@ export class PixelRunnerGame {
   }
 
   /**
-   * 处理游戏状态变更
-   * @param {string} newState - 新状态
-   * @param {string} oldState - 旧状态
+   * 处理游戏状态变�?
+   * @param {string} newState - 新状�?
+   * @param {string} oldState - 旧状�?
    */
   onStateChange(newState, oldState) {
     if (newState === 'playing') {
@@ -382,8 +474,8 @@ export class PixelRunnerGame {
   }
   
   /**
-   * 处理排行榜显示切换
-   * @param {boolean} show - 是否显示排行榜
+   * 处理排行榜显示切�?
+   * @param {boolean} show - 是否显示排行�?
    */
   onLeaderboardToggle(show) {
     console.log('[DEBUG] Leaderboard toggle:', show);
@@ -397,14 +489,11 @@ export class PixelRunnerGame {
     this.audioManager.playGameOver();
     
     this.ui.setScore(data.score);
-    this.ui.setHighScore(data.highScore);
+    this.ui.setHighScore(this.gameState.getHighScore());
+    this.skinManager.setHighScore(this.gameState.getHighScore());
     
-    this.hasCoffeeBoost = false;
-    this.coffeeBoostEndTime = 0;
-    this.speedControl.removeTemporaryBoost();
-    this.gameState.setScoreMultiplier(1);
-    
-    this.ui.stopCoffeeEffect();
+    this.clearCoffeeBuffs();
+    this.ui.setCrouchCount(0);
     
     if (data.score > 0) {
       this.leaderboardUI.lastScore = data.score;
@@ -445,7 +534,7 @@ export class PixelRunnerGame {
   }
 
   /**
-   * 处理障碍物生成事件
+   * 处理障碍物生成事�?
    * @param {object} obstacle - 生成的障碍物
    */
   onObstacleSpawn(obstacle) {
@@ -453,7 +542,7 @@ export class PixelRunnerGame {
   }
 
   /**
-   * 处理障碍物移除事件
+   * 处理障碍物移除事�?
    * @param {object} obstacle - 移除的障碍物
    */
   onObstacleRemove(obstacle) {
@@ -462,14 +551,14 @@ export class PixelRunnerGame {
   
   /**
    * 处理道具生成事件
-   * @param {object} item - 生成的道具
+   * @param {object} item - 生成的道�?
    */
   onItemSpawn(item) {
     this.engine.addItem(item);
   }
 
   /**
-   * 开始游戏
+   * 开始游�?
    */
   startGame() {
     this.engine.clear();
@@ -478,20 +567,20 @@ export class PixelRunnerGame {
     this.scene.reset();
     
     this.player = new Player(100, this.scene.getGroundY() - 48, this.audioManager);
+    this.player.applySkin(this.skinManager.getSelectedColors());
+    this.player.onSlideStart = () => this.onPlayerSlideStart();
     this.engine.addEntity(this.player);
-    
+
+    this.gameState.startNewRound();
     this.gameState.setState('playing');
     this.gameStartTime = performance.now();
     
     this.speedControl.reset();
     
-    this.hasCoffeeBoost = false;
-    this.coffeeBoostEndTime = 0;
-    this.scoreMultiplier = 1;
-    this.gameState.setScoreMultiplier(1);
-    
-    this.ui.stopCoffeeEffect();
-    
+    this.clearCoffeeBuffs();
+    this.ui.setCrouchCount(0);
+    this.ui.setRoundDisplay(1, 1);
+
     this.ui.setHighScore(this.gameState.getHighScore());
     
     this.audioManager.playGameStart();
@@ -510,7 +599,7 @@ export class PixelRunnerGame {
   
 
   /**
-   * 重新开始游戏（返回菜单）
+   * 重新开始游戏（返回菜单�?
    */
   restartGame() {
     this.gameState.setState('menu');
@@ -520,18 +609,21 @@ export class PixelRunnerGame {
   }
 
   /**
-   * 切换暂停状态
+   * 切换暂停状�?
    */
   togglePause() {
     if (this.gameState.isPlaying()) {
       this.gameState.pause();
     } else if (this.gameState.isPaused()) {
       this.gameState.resume();
+      this.ui.setScore(this.gameState.getScore());
+      this.ui.setCrouchCount(this.gameState.getCrouchCount());
+      this.ui.setRoundDisplay(this.scene.getRoundDisplay().bigRound, this.scene.getRoundDisplay().smallRound);
     }
   }
 
   /**
-   * 销毁游戏实例
+   * 销毁游戏实�?
    */
   destroy() {
     this.engine.stop();
@@ -540,3 +632,9 @@ export class PixelRunnerGame {
     this.canvas.removeEventListener('click', this.handleClick);
   }
 }
+
+
+
+
+
+

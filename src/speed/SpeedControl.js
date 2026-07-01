@@ -24,7 +24,7 @@ export class SpeedControl {
     this.onSpeedChange = null;
     
     this.temporaryBoost = 0;
-    this.temporaryBoostEndTime = 0;
+    this.temporaryBoosts = [];
     
     this.targetFPS = 60;
     this.maxDeltaTime = 100;
@@ -62,7 +62,7 @@ export class SpeedControl {
     }
     this.lastFrameTime = currentTime;
     
-    this.checkTemporaryBoost();
+    this.checkTemporaryBoost(currentTime);
   }
 
   /**
@@ -107,7 +107,8 @@ export class SpeedControl {
     this.currentSpeed = this.baseSpeed;
     this.lastIncrementTime = 0;
     this.lastFrameTime = 0;
-    this.removeTemporaryBoost();
+    this.temporaryBoosts = [];
+    this.temporaryBoost = 0;
     this.notifySpeedChange();
   }
 
@@ -183,31 +184,43 @@ export class SpeedControl {
   }
   
   /**
-   * 添加临时速度加成
+   * 添加临时速度加成（每个咖啡独立计时）
    * @param {number} multiplier - 加成倍数（如0.2表示+20%）
    * @param {number} duration - 持续时间（毫秒）
+   * @param {number} currentTime - 当前游戏时间（毫秒）
    */
-  addTemporaryBoost(multiplier, duration) {
-    this.temporaryBoost = multiplier;
-    this.temporaryBoostEndTime = performance.now() + duration;
+  addTemporaryBoost(multiplier, duration, currentTime) {
+    this.temporaryBoosts.push({
+      multiplier,
+      endTime: currentTime + duration
+    });
+    this.recalculateTemporaryBoost();
     this.notifySpeedChange();
   }
   
   /**
-   * 移除临时速度加成
+   * 移除所有临时速度加成
    */
   removeTemporaryBoost() {
+    this.temporaryBoosts = [];
     this.temporaryBoost = 0;
-    this.temporaryBoostEndTime = 0;
     this.notifySpeedChange();
+  }
+
+  recalculateTemporaryBoost() {
+    this.temporaryBoost = this.temporaryBoosts.reduce((sum, boost) => sum + boost.multiplier, 0);
   }
   
   /**
-   * 检查临时加成是否结束
+   * 检查并移除已过期的临时加成
+   * @param {number} currentTime - 当前游戏时间（毫秒）
    */
-  checkTemporaryBoost() {
-    if (this.temporaryBoost > 0 && performance.now() >= this.temporaryBoostEndTime) {
-      this.removeTemporaryBoost();
+  checkTemporaryBoost(currentTime) {
+    const before = this.temporaryBoosts.length;
+    this.temporaryBoosts = this.temporaryBoosts.filter(boost => boost.endTime > currentTime);
+    if (this.temporaryBoosts.length !== before) {
+      this.recalculateTemporaryBoost();
+      this.notifySpeedChange();
     }
   }
 

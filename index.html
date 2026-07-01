@@ -57,6 +57,12 @@
     import { PixelRunnerGame } from './src/main.js';
     
     const game = new PixelRunnerGame('gameCanvas');
+
+    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '') {
+      window.game = game;
+      console.log('[Debug] 本地测试：游戏中按 ] 键 +500 分，或在控制台执行 game.addDebugScore(500)');
+      console.log('[Debug] 测试皮肤解锁：game.setDebugHighScore(600)');
+    }
   </script>
 </body>
 </html>

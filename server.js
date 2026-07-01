@@ -12,7 +12,7 @@ const app = express();
 const server = http.createServer(app);
 
 // 配置环境变量
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3333;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || '*';
 

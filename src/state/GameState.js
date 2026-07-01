@@ -1,5 +1,5 @@
 /**
- * 存储管理器 - 负责localStorage的封装和管理
+ * 存储管理�?- 负责localStorage的封装和管理
  * 提供数据存储、读取和异常处理功能
  */
 export class StorageManager {
@@ -77,7 +77,7 @@ export class StorageManager {
         const fullKey = this.prefix + key;
         if (localStorage.getItem(fullKey) !== null) {
           localStorage.removeItem(fullKey);
-          console.log('[StorageManager] 清理旧数据:', key);
+          console.log('[StorageManager] 清理旧数�?', key);
         }
       } catch (error) {
         console.warn('[StorageManager] 清理数据失败:', key);
@@ -92,7 +92,7 @@ export class StorageManager {
       localStorage.removeItem(testKey);
       return true;
     } catch (error) {
-      console.warn('[StorageManager] localStorage不可用:', error.message);
+      console.warn('[StorageManager] localStorage不可�?', error.message);
       return false;
     }
   }
@@ -110,7 +110,7 @@ export class StorageManager {
       
       keysToRemove.forEach(key => {
         localStorage.removeItem(key);
-        console.log('[StorageManager] 已清除数据:', key);
+        console.log('[StorageManager] 已清除数�?', key);
       });
       
       return keysToRemove.length;
@@ -122,7 +122,7 @@ export class StorageManager {
 }
 
 /**
- * 排行榜管理器 - 负责管理游戏排行榜数据
+ * 排行榜管理器 - 负责管理游戏排行榜数�?
  */
 export class LeaderboardManager {
   constructor() {
@@ -139,7 +139,7 @@ export class LeaderboardManager {
     this.connectWebSocket();
     this.setupLocalStorageListener();
     this.setupVisibilityChangeListener();
-    // 在开发环境中全局暴露以便调试（只为开发/排查用）
+    // 在开发环境中全局暴露以便调试（只为开�?排查用）
     try {
       const hostname = (window && window.location && window.location.hostname) ? window.location.hostname : '';
       const isDevHost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '';
@@ -166,7 +166,7 @@ export class LeaderboardManager {
       });
       
       this.socket.on('leaderboardUpdate', (data) => {
-        console.log('[LeaderboardManager] 收到排行榜更新:', data);
+        console.log('[LeaderboardManager] 收到排行榜更�?', data);
         this.leaderboard = data;
         this.saveLeaderboard();
         
@@ -315,13 +315,13 @@ export class LeaderboardManager {
 
   submitScore(score, nickname) {
     if (typeof score !== 'number' || score < 0) {
-      console.warn('[LeaderboardManager] 无效的分数:', score);
+      console.warn('[LeaderboardManager] 无效的分�?', score);
       return 0;
     }
     
     const trimmedNickname = this.validateNickname(nickname);
     if (!trimmedNickname) {
-      console.warn('[LeaderboardManager] 无效的昵称:', nickname);
+      console.warn('[LeaderboardManager] 无效的昵�?', nickname);
       return 0;
     }
     
@@ -426,21 +426,21 @@ export class LeaderboardManager {
 /**
  * 游戏状态管理器 - 负责管理游戏的核心状态和分数系统
  * 
- * 主要功能：
+ * 主要功能�?
  * - 管理游戏生命周期状态（菜单、游戏中、暂停、结束）
  * - 处理分数计算和累加逻辑
  * - 管理最高分的存储和加载
  * - 提供状态变更的回调通知机制
- * - 排行榜数据管理
+ * - 排行榜数据管�?
  */
 export class GameState {
   /**
-   * 当前应用版本号 - 用于检测旧数据并清理
+   * 当前应用版本�?- 用于检测旧数据并清�?
    */
   static APP_VERSION = '1.0.0';
   
   /**
-   * 构造函数 - 初始化游戏状态
+   * 构造函�?- 初始化游戏状�?
    */
   constructor() {
     this.state = 'menu';
@@ -467,6 +467,9 @@ export class GameState {
     this.playerNickname = this.loadNickname();
     
     this.currentRank = 0;
+    this.crouchCount = 0;
+    this.CROUCH_REWARD_THRESHOLD = 5;
+    this.CROUCH_REWARD_POINTS = 20;
     
     this.setupLocalStorageSync();
     
@@ -474,8 +477,8 @@ export class GameState {
   }
   
   /**
-   * 检查并清理旧数据
-   * 当应用版本变更时，清除可能存在的旧测试数据
+   * 检查并清理旧数�?
+   * 当应用版本变更时，清除可能存在的旧测试数�?
    */
   checkAndCleanOldData() {
     try {
@@ -487,10 +490,10 @@ export class GameState {
         const storageManager = new StorageManager();
         const clearedCount = storageManager.clearAllAppData();
         
-        console.log(`[GameState] 已清除 ${clearedCount} 条旧数据`);
+        console.log(`[GameState] 已清�?${clearedCount} 条旧数据`);
       }
     } catch (error) {
-      console.warn('[GameState] 检查版本失败:', error.message);
+      console.warn('[GameState] 检查版本失�?', error.message);
     }
   }
   
@@ -536,7 +539,7 @@ export class GameState {
   }
   
   /**
-   * 从本地存储加载玩家昵称
+   * 从本地存储加载玩家昵�?
    * @returns {string|null} 存储的昵称，若无则返回null
    */
   loadNickname() {
@@ -555,7 +558,7 @@ export class GameState {
   }
   
   /**
-   * 保存玩家昵称到本地存储
+   * 保存玩家昵称到本地存�?
    * @param {string} nickname - 昵称
    */
   saveNickname(nickname) {
@@ -581,8 +584,8 @@ export class GameState {
   }
 
   /**
-   * 保存最高分到本地存储
-   * 仅当当前分数超过已保存的最高分才保存
+   * 保存最高分到本地存�?
+   * 仅当当前分数超过已保存的最高分才保�?
    */
   saveHighScore() {
     if (this.score > this.highScore) {
@@ -592,7 +595,7 @@ export class GameState {
   }
   
   /**
-   * 重置最高分到0
+   * 重置最高分�?
    */
   resetHighScore() {
     this.highScore = 0;
@@ -603,48 +606,52 @@ export class GameState {
   }
 
   /**
-   * 设置游戏状态
-   * @param {string} newState - 新的游戏状态（menu/playing/paused/gameover）
+   * 设置游戏状�?
+   * @param {string} newState - 新的游戏状态（menu/playing/paused/gameover�?
    */
   setState(newState) {
-    // 验证状态合法性且状态确实发生变化
+    // 验证状态合法性且状态确实发生变�?
     if (this.states.includes(newState) && this.state !== newState) {
       const oldState = this.state;
       this.state = newState;
       
-      // 触发状态变更回调
+      // 触发状态变更回�?
       if (typeof this.onStateChange === 'function') {
         this.onStateChange(newState, oldState);
       }
       
       // 根据新状态执行相应操作
-      if (newState === 'playing') {
-        this.start();
-      } else if (newState === 'gameover') {
+      if (newState === 'gameover') {
         this.end();
       }
     }
   }
 
   /**
-   * 开始游戏 - 初始化游戏数据
+   * 开始新一局 - 重置分数与计数（由 startGame 显式调用，暂停恢复时不调用）
    */
-  start() {
-    this.score = 0;                // 重置分数
-    this.gameTime = 0;             // 重置游戏时间
-    this.startTime = performance.now();  // 记录开始时间戳
-    this.scoreMultiplier = 1;      // 重置分数倍率
-    this.scoreAccumulator = 0;     // 重置分数累加器
+  startNewRound() {
+    this.score = 0;
+    this.gameTime = 0;
+    this.startTime = performance.now();
+    this.scoreMultiplier = 1;
+    this.scoreAccumulator = 0;
+    this.crouchCount = 0;
+
+    if (typeof this.onScoreChange === 'function') {
+      this.onScoreChange(this.score);
+    }
   }
 
   /**
    * 结束游戏 - 保存分数并触发结束回调
    */
   end() {
+    this.crouchCount = 0;
     const originalHighScore = this.highScore;
     this.saveHighScore();          // 保存最高分
     
-    // 触发游戏结束回调，传递游戏数据
+    // 触发游戏结束回调，传递游戏数�?
     if (typeof this.onGameOver === 'function') {
       this.onGameOver({
         score: this.score,
@@ -669,7 +676,7 @@ export class GameState {
   resume() {
     if (this.state === 'paused') {
       this.setState('playing');
-      // 恢复游戏时间，保持计时连续性
+      // 恢复游戏时间，保持计时连续�?
       this.startTime = performance.now() - this.gameTime;
     }
   }
@@ -682,8 +689,8 @@ export class GameState {
   }
 
   /**
-   * 更新游戏状态（每帧调用）
-   * @param {number} deltaTime - 帧间隔时间（毫秒）
+   * 更新游戏状态（每帧调用�?
+   * @param {number} deltaTime - 帧间隔时间（毫秒�?
    */
   update(deltaTime) {
     if (this.state === 'playing') {
@@ -693,12 +700,12 @@ export class GameState {
   }
 
   /**
-   * 更新分数 - 实现稳定的1分/秒获取速率
-   * @param {number} deltaTime - 帧间隔时间（毫秒）
+   * 更新分数 - 实现稳定�?�?秒获取速率
+   * @param {number} deltaTime - 帧间隔时间（毫秒�?
    * 
-   * 实现原理：
-   * - 使用累加器模式累积时间
-   * - 每1000毫秒（1秒）增加1分
+   * 实现原理�?
+   * - 使用累加器模式累积时�?
+   * - �?000毫秒�?秒）增加1�?
    * - 乘以当前分数倍率
    * - 只有实际加分时才触发回调，优化性能
    */
@@ -718,7 +725,7 @@ export class GameState {
       this.score = 0;
     }
     
-    // 计算应增加的分数（每1000ms加1分）
+    // 计算应增加的分数（每1000ms�?分）
     const pointsToAdd = Math.floor(this.scoreAccumulator / 1000);
     if (pointsToAdd > 0) {
       const actualPoints = pointsToAdd * this.scoreMultiplier;
@@ -740,7 +747,7 @@ export class GameState {
   }
 
   /**
-   * 直接添加分数（用于道具奖励等）
+   * 直接添加分数（用于道具奖励等�?
    * @param {number} points - 要添加的分数
    */
   addScore(points) {
@@ -751,16 +758,42 @@ export class GameState {
   }
 
   /**
+   * 记录一次下蹲动作，满5次奖励20分并清零计数
+   * @returns {number} 本次获得的奖励分数（0 表示未触发奖励）
+   */
+  registerCrouch() {
+    if (this.state !== 'playing') return 0;
+
+    this.crouchCount++;
+
+    if (this.crouchCount >= this.CROUCH_REWARD_THRESHOLD) {
+      this.crouchCount = 0;
+      this.addScore(this.CROUCH_REWARD_POINTS);
+      return this.CROUCH_REWARD_POINTS;
+    }
+
+    return 0;
+  }
+
+  /**
+   * 获取当前下蹲计数
+   * @returns {number}
+   */
+  getCrouchCount() {
+    return this.crouchCount;
+  }
+
+  /**
    * 设置分数倍率
-   * @param {number} multiplier - 倍率值（如2表示分数×2）
+   * @param {number} multiplier - 倍率值（�?表示分数×2�?
    */
   setScoreMultiplier(multiplier) {
     this.scoreMultiplier = multiplier;
   }
 
   /**
-   * 获取当前游戏状态
-   * @returns {string} 当前状态
+   * 获取当前游戏状�?
+   * @returns {string} 当前状�?
    */
   getState() {
     return this.state;
@@ -791,7 +824,7 @@ export class GameState {
   }
 
   /**
-   * 判断是否正在游戏中
+   * 判断是否正在游戏�?
    * @returns {boolean} 是否在游戏中
    */
   isPlaying() {
@@ -799,7 +832,7 @@ export class GameState {
   }
 
   /**
-   * 判断是否处于暂停状态
+   * 判断是否处于暂停状�?
    * @returns {boolean} 是否暂停
    */
   isPaused() {
@@ -815,8 +848,8 @@ export class GameState {
   }
 
   /**
-   * 判断是否在菜单界面
-   * @returns {boolean} 是否在菜单
+   * 判断是否在菜单界�?
+   * @returns {boolean} 是否在菜�?
    */
   isMenu() {
     return this.state === 'menu';
@@ -851,22 +884,22 @@ export class GameState {
 }
 
 /**
- * 分数管理器（备用）- 支持连击系统的分数管理
+ * 分数管理器（备用�? 支持连击系统的分数管�?
  * 
  * 功能特性：
  * - 连击计数和倍率系统
- * - 最高连击记录
+ * - 最高连击记�?
  * - 分数更新回调通知
  */
 export class ScoreManager {
   /**
-   * 构造函数 - 初始化分数管理器
+   * 构造函�?- 初始化分数管理器
    */
   constructor() {
     this.score = 0;                // 当前分数
-    this.combo = 0;                // 当前连击数
-    this.maxCombo = 0;             // 最高连击记录
-    this.multipliers = [1, 1.5, 2, 3, 5];  // 连击倍率表
+    this.combo = 0;                // 当前连击�?
+    this.maxCombo = 0;             // 最高连击记�?
+    this.multipliers = [1, 1.5, 2, 3, 5];  // 连击倍率�?
     
     // 回调函数
     this.onScoreUpdate = null;     // 分数更新回调
@@ -874,7 +907,7 @@ export class ScoreManager {
   }
 
   /**
-   * 添加分数（考虑连击倍率）
+   * 添加分数（考虑连击倍率�?
    * @param {number} points - 基础分数
    */
   addPoints(points) {
@@ -912,7 +945,7 @@ export class ScoreManager {
   }
 
   /**
-   * 重置所有数据
+   * 重置所有数�?
    */
   reset() {
     this.score = 0;
@@ -937,15 +970,15 @@ export class ScoreManager {
   }
 
   /**
-   * 获取当前连击数
-   * @returns {number} 当前连击数
+   * 获取当前连击�?
+   * @returns {number} 当前连击�?
    */
   getCombo() {
     return this.combo;
   }
 
   /**
-   * 获取最高连击记录
+   * 获取最高连击记�?
    * @returns {number} 最高连击数
    */
   getMaxCombo() {

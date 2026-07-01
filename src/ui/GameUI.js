@@ -1,4 +1,5 @@
 import { VolumeControl } from './VolumeControl.js';
+import { SkinManager } from '../player/SkinManager.js';
 
 export class GameUI {
   constructor(canvas, audioManager = null) {
@@ -21,16 +22,43 @@ export class GameUI {
     this.guideCurrentPage = 0;
     this.guideTotalPages = 3;
     
+    this.showAnnouncement = false;
+    this.announcements = [
+      { id: 1, title: '游戏更新公告', content: '新增道具系统！收集咖啡获得加速效果，收集苹果获得额外分数！', date: '2026-06-20' },
+      { id: 2, title: '排行榜上线', content: '多人实时排行榜功能已上线！快来挑战最高分吧！', date: '2026-06-15' },
+      { id: 3, title: '游戏发布', content: 'Pixel Runner 正式发布！感谢大家的支持！', date: '2026-06-10' }
+    ];
+    this.mailButton = { x: 0, y: 0, width: 40, height: 40 };
+    
     this.pixelFont = 'pixel';
     
-    this.coffeeActive = false;
-    this.coffeeTimeLeft = 0;
+    this.coffeeBuffs = [];
+    this.scoreMultiplier = 1;
+    this.bigRound = 1;
+    this.smallRound = 1;
     this.appleNotifications = [];
+    this.crouchCount = 0;
     
     this.volumeControl = null;
     this.showVolumeControl = true;
+
+    this.skinManager = null;
+    this.previewPlayer = null;
+    this.skinLeftButton = { x: 0, y: 0, width: 28, height: 28 };
+    this.skinRightButton = { x: 0, y: 0, width: 28, height: 28 };
     
     this.initElements();
+  }
+
+  setSkinManager(skinManager, previewPlayer) {
+    this.skinManager = skinManager;
+    this.previewPlayer = previewPlayer;
+  }
+
+  syncPreviewSkin() {
+    if (this.skinManager && this.previewPlayer) {
+      this.previewPlayer.applySkin(this.skinManager.getSelectedColors());
+    }
   }
 
   initElements() {
@@ -60,6 +88,12 @@ export class GameUI {
     this.ctx.save();
     this.ctx.imageSmoothingEnabled = false;
     
+    this.drawMailIcon(this.canvas.width - 55, 25);
+
+    if (this.skinManager && this.previewPlayer) {
+      this.renderSkinSelector(centerX, centerY);
+    }
+    
     this.ctx.fillStyle = '#ff6b6b';
     this.drawPixelText('PIXEL RUNNER', centerX, centerY - 100, 48);
     
@@ -79,6 +113,152 @@ export class GameUI {
     }
     
     this.ctx.restore();
+  }
+
+  renderSkinSelector(centerX, centerY) {
+    const panelX = 28;
+    const panelY = centerY - 95;
+    const panelW = 176;
+    const panelH = 220;
+
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+    this.ctx.fillRect(panelX, panelY, panelW, panelH);
+    this.ctx.strokeStyle = '#636e72';
+    this.ctx.lineWidth = 2;
+    this.ctx.strokeRect(panelX, panelY, panelW, panelH);
+
+    this.ctx.fillStyle = '#ffeaa7';
+    this.drawPixelText('皮肤', panelX + panelW / 2, panelY + 18, 14);
+
+    this.ctx.fillStyle = '#4a4a6a';
+    this.ctx.fillRect(panelX + 20, panelY + 118, panelW - 40, 8);
+    this.ctx.fillStyle = '#5a4a3a';
+    this.ctx.fillRect(panelX + 20, panelY + 126, panelW - 40, 6);
+
+    this.syncPreviewSkin();
+    this.previewPlayer.renderPreview(this.ctx, panelX + 72, panelY + 72);
+
+    const selectorY = panelY + 152;
+    const leftX = panelX + 16;
+    const rightX = panelX + panelW - 44;
+
+    this.skinLeftButton.x = leftX;
+    this.skinLeftButton.y = selectorY;
+    this.skinRightButton.x = rightX;
+    this.skinRightButton.y = selectorY;
+
+    this.ctx.fillStyle = '#636e72';
+    this.ctx.fillRect(leftX, selectorY, 28, 28);
+    this.ctx.fillRect(rightX, selectorY, 28, 28);
+    this.ctx.fillStyle = '#ffeaa7';
+    this.drawPixelText('<', leftX + 14, selectorY + 15, 16);
+    this.drawPixelText('>', rightX + 14, selectorY + 15, 16);
+
+    const skin = this.skinManager.getSelectedSkin();
+    const unlockedCount = this.skinManager.getUnlockedSkins().length;
+    const totalCount = SkinManager.SKINS.length;
+
+    this.ctx.fillStyle = skin.kind === 'hat' ? '#fdcb6e' : '#74b9ff';
+    this.drawPixelText(skin.kind === 'hat' ? '帽子' : '衣服', panelX + panelW / 2, selectorY + 2, 10);
+
+    this.ctx.fillStyle = '#dfe6e9';
+    this.drawPixelText(skin.name, panelX + panelW / 2, selectorY + 44, 11);
+
+    this.ctx.fillStyle = '#b2bec3';
+    this.drawPixelText(`${unlockedCount}/${totalCount}`, panelX + panelW / 2, panelY + panelH - 38, 10);
+
+    const nextLocked = this.skinManager.getNextLockedSkin();
+    if (nextLocked) {
+      this.ctx.fillStyle = '#fd79a8';
+      this.drawPixelText(`下一款 ${nextLocked.unlockScore}分`, panelX + panelW / 2, panelY + panelH - 18, 9);
+    } else {
+      this.ctx.fillStyle = '#00b894';
+      this.drawPixelText('已全部解锁', panelX + panelW / 2, panelY + panelH - 18, 9);
+    }
+  }
+
+  drawMailIcon(x, y) {
+    this.mailButton.x = x;
+    this.mailButton.y = y;
+    
+    this.ctx.fillStyle = '#6c5ce7';
+    this.ctx.fillRect(x, y, 36, 28);
+    
+    this.ctx.fillStyle = '#a29bfe';
+    this.ctx.fillRect(x + 2, y + 2, 32, 24);
+    
+    this.ctx.fillStyle = '#6c5ce7';
+    this.ctx.beginPath();
+    this.ctx.moveTo(x, y + 10);
+    this.ctx.lineTo(x + 18, y + 22);
+    this.ctx.lineTo(x + 36, y + 10);
+    this.ctx.stroke();
+    
+    this.ctx.fillStyle = '#ffffff';
+    this.drawPixelText('@', x + 18, y + 18, 16);
+  }
+
+  renderAnnouncementScreen() {
+    const centerX = this.canvas.width / 2;
+    const centerY = this.canvas.height / 2;
+    
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.92)';
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    
+    this.ctx.fillStyle = '#6c5ce7';
+    this.ctx.fillRect(centerX - 250, centerY - 180, 500, 360);
+    
+    this.ctx.fillStyle = '#a29bfe';
+    this.ctx.fillRect(centerX - 245, centerY - 175, 490, 350);
+    
+    this.ctx.fillStyle = '#ffeaa7';
+    this.drawPixelText('📧 公告栏', centerX, centerY - 150, 24);
+    
+    const startY = centerY - 100;
+    const entryHeight = 100;
+    
+    this.announcements.forEach((announcement, index) => {
+      const entryY = startY + index * entryHeight;
+      
+      this.ctx.fillStyle = '#2d3436';
+      this.ctx.fillRect(centerX - 220, entryY, 440, 80);
+      
+      this.ctx.fillStyle = '#00b894';
+      this.drawPixelText(announcement.title, centerX, entryY + 20, 14);
+      
+      this.ctx.fillStyle = '#dfe6e9';
+      this.drawPixelText(announcement.date, centerX - 180, entryY + 50, 10);
+      
+      const contentLines = this.wrapText(announcement.content, 40);
+      contentLines.forEach((line, lineIndex) => {
+        this.drawPixelText(line, centerX, entryY + 50 + lineIndex * 16, 12);
+      });
+    });
+    
+    this.ctx.fillStyle = '#ff6b6b';
+    this.ctx.fillRect(centerX - 80, centerY + 150, 160, 32);
+    
+    this.ctx.fillStyle = '#ffeaa7';
+    this.drawPixelText('关闭', centerX, centerY + 166, 12);
+  }
+
+  wrapText(text, maxLength) {
+    const lines = [];
+    let currentLine = '';
+    
+    text.split('').forEach(char => {
+      if (currentLine.length >= maxLength) {
+        lines.push(currentLine);
+        currentLine = '';
+      }
+      currentLine += char;
+    });
+    
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+    
+    return lines;
   }
 
   drawGuideButton(x, y) {
@@ -150,10 +330,10 @@ export class GameUI {
 
   renderControlsPage(x, y, width) {
     const controls = [
-      { key: '空格/↑/W', action: '基础跳跃', desc: '单次按键实现普通跳跃', extra: '', color: '#00ff88' },
-      { key: '空格/↑/W×2', action: '二段跳', desc: '连续两次按键实现二段跳', extra: '', color: '#00d9ff' },
+      { key: '空格/↑ W', action: '基础跳跃', desc: '单次按键实现普通跳跃', extra: '', color: '#00ff88' },
+      { key: '空格/↑ W×2', action: '二段跳', desc: '连续两次按键实现二段跳', extra: '', color: '#00d9ff' },
       { key: '↓ / S', action: '滑行', desc: '蹲下躲避高空障碍物', extra: '', color: '#ffaa00' },
-      { key: '空格/↑/W×3', action: '闪现', desc: '连续三次按键触发闪现', extra: '【2秒无敌效果，4秒冷却时间】', color: '#ff6b9d' }
+      { key: '空格/↑ W×3', action: '闪现', desc: '连续三次按键触发闪现', extra: '2秒无敌效果，4秒冷却时间', color: '#ff6b9d' }
     ];
     
     controls.forEach((control, index) => {
@@ -188,7 +368,7 @@ export class GameUI {
   renderItemsPage(x, y, width) {
     const items = [
       { name: '苹果', color: '#E74C3C', desc: '获得30分', extra: '', icon: 'apple', accent: '#00ff88' },
-      { name: '咖啡', color: '#8B4513', desc: '双倍得分+移动加速', extra: '【有效时间10秒】', icon: 'coffee', accent: '#ffaa00' }
+      { name: '咖啡', color: '#8B4513', desc: '得分倍率+2，移动加速', extra: '【可叠加，各10秒】', icon: 'coffee', accent: '#ffaa00' }
     ];
     
     items.forEach((item, index) => {
@@ -231,7 +411,7 @@ export class GameUI {
     const obstacles = [
       { id: 'bird', name: '飞鸟', color: '#E17055', desc: '低空飞行障碍物，需滑行躲避', type: 'low' },
       { id: 'bat', name: '蝙蝠', color: '#2D3436', desc: '低空飞行障碍物，需滑行躲避', type: 'low' },
-      { id: 'barrier', name: '障碍门', color: '#00CEC9', desc: '低空障碍，需滑行或二段跳', type: 'low' },
+      { id: 'barrier', name: '障碍物', color: '#00CEC9', desc: '低空障碍，需滑行或二段跳', type: 'low' },
       { id: 'purple_block', name: '紫色方块', color: '#6C5CE7', desc: '可跳跃的浮动平台', type: 'low' },
       { id: 'cloud_obstacle', name: '云朵障碍', color: '#DFE6E9', desc: '中高空障碍物，需二段跳', type: 'high' },
       { id: 'butterfly', name: '蝴蝶', color: '#FD79A8', desc: '高空飞行障碍物，需二段跳', type: 'high' },
@@ -454,65 +634,85 @@ export class GameUI {
   renderGameHUD() {
     this.ctx.save();
     this.ctx.imageSmoothingEnabled = false;
-    
+
     this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-    this.ctx.fillRect(10, 10, 150, 80);
-    
+    this.ctx.fillRect(10, 10, 150, 100);
+
+    this.ctx.fillStyle = '#a29bfe';
+    this.drawPixelText(`${this.bigRound}/${this.smallRound}`, 85, 28, 14);
+
     this.ctx.fillStyle = '#ffeaa7';
     const scoreText = `分数: ${this.score}`;
-    this.drawPixelText(scoreText, 85, 35, 16);
+    this.drawPixelText(scoreText, 85, 52, 16);
     
-    if (this.coffeeActive) {
+    if (this.scoreMultiplier > 1) {
       const scoreWidth = this.ctx.measureText(scoreText).width;
       this.ctx.fillStyle = '#fdcb6e';
       this.ctx.font = 'bold 12px "Press Start 2P", monospace';
-      this.ctx.fillText('×2', 85 + scoreWidth + 10, 32);
+      this.ctx.fillText(`×${this.scoreMultiplier}`, 85 + scoreWidth + 10, 49);
       this.ctx.font = '16px "Press Start 2P", monospace';
     }
     
     this.ctx.fillStyle = '#fd79a8';
-    this.drawPixelText(`最高分: ${this.highScore}`, 85, 60, 12);
-    
+    this.drawPixelText(`最高分: ${this.highScore}`, 85, 77, 12);
+
     this.ctx.fillStyle = '#74b9ff';
-    this.drawPixelText('P 暂停', 85, 85, 12);
+    this.drawPixelText('P 暂停', 85, 100, 12);
     
     this.renderCoffeeEffect();
+    this.renderCrouchCounter();
     this.renderAppleNotifications();
     
     this.ctx.restore();
   }
   
   renderCoffeeEffect() {
-    if (!this.coffeeActive || this.coffeeTimeLeft <= 0) return;
-    
+    if (this.coffeeBuffs.length === 0) return;
+
     const iconX = this.canvas.width - 50;
-    const iconY = 80;
     const iconSize = 32;
-    
     const fadeDuration = 1000;
-    const fadeAlpha = this.coffeeTimeLeft < fadeDuration ? this.coffeeTimeLeft / fadeDuration : 1;
-    
-    const pulse = Math.sin(Date.now() * 0.01) * 0.2 + 0.8;
-    const finalAlpha = 0.8 * pulse * fadeAlpha;
-    
-    this.ctx.fillStyle = `rgba(253, 196, 110, ${finalAlpha})`;
-    this.ctx.shadowColor = '#fdcb6e';
-    this.ctx.shadowBlur = 10 * pulse * fadeAlpha;
-    
-    this.ctx.fillRect(iconX, iconY, iconSize, iconSize);
-    
-    this.ctx.fillStyle = `rgba(45, 52, 54, ${fadeAlpha})`;
-    this.ctx.fillRect(iconX + 4, iconY + 8, 8, 16);
-    this.ctx.fillRect(iconX + 20, iconY + 8, 8, 16);
-    this.ctx.fillRect(iconX + 8, iconY + 20, 16, 8);
-    
-    this.ctx.shadowBlur = 0;
-    
-    const timeLeft = Math.ceil(this.coffeeTimeLeft / 1000);
-    this.ctx.fillStyle = `rgba(253, 203, 110, ${fadeAlpha})`;
-    this.drawPixelText(`${timeLeft}s`, iconX + iconSize / 2, iconY + iconSize + 15, 12);
+
+    this.coffeeBuffs.forEach((timeLeft, index) => {
+      if (timeLeft <= 0) return;
+
+      const iconY = 80 + index * 48;
+      const fadeAlpha = timeLeft < fadeDuration ? timeLeft / fadeDuration : 1;
+      const pulse = Math.sin(Date.now() * 0.01 + index) * 0.2 + 0.8;
+      const finalAlpha = 0.8 * pulse * fadeAlpha;
+
+      this.ctx.fillStyle = `rgba(253, 196, 110, ${finalAlpha})`;
+      this.ctx.shadowColor = '#fdcb6e';
+      this.ctx.shadowBlur = 10 * pulse * fadeAlpha;
+
+      this.ctx.fillRect(iconX, iconY, iconSize, iconSize);
+
+      this.ctx.fillStyle = `rgba(45, 52, 54, ${fadeAlpha})`;
+      this.ctx.fillRect(iconX + 4, iconY + 8, 8, 16);
+      this.ctx.fillRect(iconX + 20, iconY + 8, 8, 16);
+      this.ctx.fillRect(iconX + 8, iconY + 20, 16, 8);
+
+      this.ctx.shadowBlur = 0;
+
+      const secondsLeft = Math.ceil(timeLeft / 1000);
+      this.ctx.fillStyle = `rgba(253, 203, 110, ${fadeAlpha})`;
+      this.drawPixelText(`${secondsLeft}s`, iconX + iconSize / 2, iconY + iconSize + 15, 12);
+    });
   }
   
+  renderCrouchCounter() {
+    const boxWidth = 130;
+    const boxHeight = 40;
+    const boxX = this.canvas.width - boxWidth - 10;
+    const boxY = 10;
+
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    this.ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+
+    this.ctx.fillStyle = '#a29bfe';
+    this.drawPixelText(`下蹲 ${this.crouchCount}/5`, boxX + boxWidth / 2, boxY + 25, 12);
+  }
+
   renderAppleNotifications() {
     this.appleNotifications.forEach((notification, index) => {
       if (notification.alpha <= 0) return;
@@ -530,14 +730,6 @@ export class GameUI {
   update(deltaTime) {
     if (isNaN(deltaTime) || deltaTime <= 0) return;
     
-    if (this.coffeeActive) {
-      this.coffeeTimeLeft -= deltaTime;
-      if (this.coffeeTimeLeft <= 0) {
-        this.coffeeActive = false;
-        this.coffeeTimeLeft = 0;
-      }
-    }
-    
     this.appleNotifications = this.appleNotifications.filter(notification => {
       notification.y -= 0.5;
       notification.alpha -= deltaTime / 1500;
@@ -545,22 +737,29 @@ export class GameUI {
     });
   }
   
-  startCoffeeEffect(duration = 5000) {
-    this.coffeeActive = true;
-    this.coffeeTimeLeft = duration;
+  setCoffeeBuffs(timeLeftList) {
+    this.coffeeBuffs = timeLeftList;
   }
-  
-  stopCoffeeEffect() {
-    this.coffeeActive = false;
-    this.coffeeTimeLeft = 0;
+
+  setScoreMultiplier(multiplier) {
+    this.scoreMultiplier = multiplier;
   }
-  
+
+  setRoundDisplay(bigRound, smallRound) {
+    this.bigRound = bigRound;
+    this.smallRound = smallRound;
+  }
+
   addAppleNotification(score = 30) {
     this.appleNotifications.push({
       score: score,
       y: this.canvas.height / 2 - 50,
       alpha: 1
     });
+  }
+
+  setCrouchCount(count) {
+    this.crouchCount = count;
   }
 
   renderPauseScreen() {
@@ -575,12 +774,15 @@ export class GameUI {
     
     this.ctx.fillStyle = '#ffeaa7';
     this.drawPixelText('游戏暂停', centerX, centerY - 30, 32);
+
+    this.ctx.fillStyle = '#fdcb6e';
+    this.drawPixelText(`当前分数: ${this.score}`, centerX, centerY + 15, 16);
     
     this.ctx.fillStyle = '#74b9ff';
-    this.drawPixelText('按 P 继续', centerX, centerY + 10, 20);
+    this.drawPixelText('按 P 继续', centerX, centerY + 50, 20);
     
     this.ctx.fillStyle = '#fd79a8';
-    this.drawPixelText('按 ESC 返回菜单', centerX, centerY + 45, 16);
+    this.drawPixelText('按 ESC 返回菜单', centerX, centerY + 85, 16);
     
     this.ctx.restore();
   }
@@ -667,6 +869,16 @@ export class GameUI {
         }
         return;
       }
+    } else if (this.skinManager) {
+      if (key === 'ArrowLeft' || key === 'a' || key === 'A') {
+        this.skinManager.selectPrevious();
+        this.syncPreviewSkin();
+        return;
+      } else if (key === 'ArrowRight' || key === 'd' || key === 'D') {
+        this.skinManager.selectNext();
+        this.syncPreviewSkin();
+        return;
+      }
     }
     
     if (key === 'Enter') {
@@ -688,6 +900,22 @@ export class GameUI {
 
   handleMouseClick(x, y) {
     const centerX = this.canvas.width / 2;
+    const centerY = this.canvas.height / 2;
+
+    if (!this.showGuide && this.skinManager) {
+      if (x >= this.skinLeftButton.x && x <= this.skinLeftButton.x + this.skinLeftButton.width &&
+          y >= this.skinLeftButton.y && y <= this.skinLeftButton.y + this.skinLeftButton.height) {
+        this.skinManager.selectPrevious();
+        this.syncPreviewSkin();
+        return;
+      }
+      if (x >= this.skinRightButton.x && x <= this.skinRightButton.x + this.skinRightButton.width &&
+          y >= this.skinRightButton.y && y <= this.skinRightButton.y + this.skinRightButton.height) {
+        this.skinManager.selectNext();
+        this.syncPreviewSkin();
+        return;
+      }
+    }
     
     const leaderboardButtonY = this.canvas.height / 2 + 110;
     const guideButtonY = this.canvas.height / 2 + 150;
@@ -708,6 +936,19 @@ export class GameUI {
         y >= guideButtonY && y <= guideButtonY + buttonHeight) {
       this.showGuide = !this.showGuide;
       this.guideCurrentPage = 0;
+    }
+    
+    if (x >= this.mailButton.x && x <= this.mailButton.x + this.mailButton.width &&
+        y >= this.mailButton.y && y <= this.mailButton.y + this.mailButton.height) {
+      this.showAnnouncement = !this.showAnnouncement;
+    }
+    
+    if (this.showAnnouncement) {
+      const centerX = this.canvas.width / 2;
+      if (x >= centerX - 80 && x <= centerX + 80 &&
+          y >= centerY + 150 && y <= centerY + 182) {
+        this.showAnnouncement = false;
+      }
     }
     
     if (this.showGuide) {
@@ -790,3 +1031,6 @@ export class PixelButton {
            y >= this.y && y <= this.y + this.height;
   }
 }
+
+
+

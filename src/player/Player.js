@@ -52,12 +52,14 @@ export class Player {
       body: '#ff6b6b',
       head: '#ffeaa7',
       eyes: '#2d3436',
-      shoes: '#2d3436'
+      shoes: '#2d3436',
+      hat: '#d63031',
+      hatBrim: '#b71540',
+      hatBand: '#ffeaa7'
     };
     
     this.onStateChange = null;
-    
-    // 滑行状态追踪变量
+    this.onSlideStart = null;
     this.slideKeyPressed = false;
     this.slideStartTime = null;
     this.slideDuration = 1000;
@@ -65,6 +67,26 @@ export class Player {
     
     // 落地音效追踪
     this.wasInAir = false;
+  }
+
+  applySkin(colors) {
+    if (!colors) return;
+    this.colors = { ...this.colors, ...colors };
+  }
+
+  renderPreview(ctx, x, y) {
+    const prevX = this.x;
+    const prevY = this.y;
+    const prevState = this.state;
+
+    this.x = x;
+    this.y = y;
+    this.state = 'idle';
+    this.render(ctx);
+
+    this.x = prevX;
+    this.y = prevY;
+    this.state = prevState;
   }
 
   /**
@@ -213,6 +235,10 @@ export class Player {
         }
         
         this.audioManager?.playSlide();
+        
+        if (typeof this.onSlideStart === 'function') {
+          this.onSlideStart();
+        }
       }
     }
   }
@@ -427,6 +453,32 @@ export class Player {
   }
   
   /**
+   * 渲染像素风帽子
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {number} headX - 头部左上角 X
+   * @param {number} headY - 头部左上角 Y
+   * @param {'upright'|'slide'} orientation
+   */
+  renderHat(ctx, headX, headY, orientation = 'upright') {
+    if (orientation === 'slide') {
+      ctx.fillStyle = this.colors.hat;
+      ctx.fillRect(headX + 2, headY - 6, 12, 7);
+      ctx.fillStyle = this.colors.hatBrim;
+      ctx.fillRect(headX - 2, headY - 1, 20, 3);
+      ctx.fillStyle = this.colors.hatBand;
+      ctx.fillRect(headX + 2, headY - 1, 12, 2);
+      return;
+    }
+
+    ctx.fillStyle = this.colors.hat;
+    ctx.fillRect(headX + 2, headY - 7, 12, 8);
+    ctx.fillStyle = this.colors.hatBrim;
+    ctx.fillRect(headX - 2, headY - 2, 20, 4);
+    ctx.fillStyle = this.colors.hatBand;
+    ctx.fillRect(headX + 2, headY - 2, 12, 2);
+  }
+
+  /**
    * 渲染闪现冷却条
    * @param {CanvasRenderingContext2D} ctx - 画布上下文
    */
@@ -488,6 +540,7 @@ export class Player {
   renderIdle(ctx, x, y) {
     ctx.fillStyle = this.colors.head;
     ctx.fillRect(x + 8, y, 16, 16);
+    this.renderHat(ctx, x + 8, y, 'upright');
     
     ctx.fillStyle = this.colors.eyes;
     ctx.fillRect(x + 11, y + 5, 4, 4);
@@ -516,6 +569,7 @@ export class Player {
     
     ctx.fillStyle = this.colors.head;
     ctx.fillRect(x + 8, y, 16, 16);
+    this.renderHat(ctx, x + 8, y, 'upright');
     
     ctx.fillStyle = this.colors.eyes;
     ctx.fillRect(x + 11, y + 5, 4, 4);
@@ -544,12 +598,13 @@ export class Player {
   renderJumping(ctx, x, y) {
     ctx.fillStyle = this.colors.head;
     ctx.fillRect(x + 8, y, 16, 16);
+    this.renderHat(ctx, x + 8, y, 'upright');
     
     ctx.fillStyle = this.colors.eyes;
     ctx.fillRect(x + 11, y + 5, 4, 4);
     ctx.fillRect(x + 17, y + 5, 4, 4);
     
-    ctx.fillStyle = '#ff7675';
+    ctx.fillStyle = this.colors.body;
     ctx.fillRect(x + 6, y + 16, 20, 20);
     
     ctx.fillStyle = this.colors.body;
@@ -560,7 +615,7 @@ export class Player {
     ctx.fillRect(x + 6, y + 46, 10, 2);
     ctx.fillRect(x + 16, y + 46, 10, 2);
     
-    ctx.fillStyle = '#74b9ff';
+    ctx.fillStyle = this.colors.hatBrim;
     ctx.fillRect(x + 2, y + 40, 4, 8);
     ctx.fillRect(x + 26, y + 40, 4, 8);
   }
@@ -593,6 +648,7 @@ export class Player {
     
     ctx.fillStyle = this.colors.head;
     ctx.fillRect(x + 12, y + 16, 16, 16);
+    this.renderHat(ctx, x + 12, y + 16, 'slide');
     
     ctx.fillStyle = this.colors.eyes;
     ctx.fillRect(x + 15, y + 21, 4, 4);
@@ -607,7 +663,7 @@ export class Player {
     ctx.fillStyle = this.colors.shoes;
     ctx.fillRect(x + 2, y + 46, 28, 2);
     
-    ctx.fillStyle = '#ff7675';
+    ctx.fillStyle = this.colors.body;
     ctx.fillRect(x + 26, y + 30, 4, 12);
     
     if (!this.onGround) {

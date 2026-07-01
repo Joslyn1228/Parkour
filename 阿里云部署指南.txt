@@ -1,0 +1,113 @@
+# 阿里云部署操作指南
+
+## ✅ 本地状态确认
+- 代码已成功推送到 GitHub: f2b24ac
+
+## 📋 阿里云部署步骤
+
+### 1. 登录阿里云服务器
+```bash
+ssh admin@139.196.221.234
+# 输入你的密码
+```
+
+### 2. 进入项目目录
+```bash
+# 根据你实际的项目路径，例如:
+cd /home/admin/parkour
+# 或者:
+cd /var/www/parkour
+# 或者查看有哪些目录:
+ls -la
+```
+
+### 3. 拉取最新代码
+```bash
+# 拉取最新代码
+git pull origin master
+
+# 如果有冲突，强制覆盖（警告：会丢失本地修改）
+# git fetch --all
+# git reset --hard origin/master
+```
+
+### 4. 重启服务
+```bash
+# 重启 pm2 服务
+pm2 restart parkour
+
+# 查看服务状态
+pm2 status parkour
+
+# 查看日志（可选）
+pm2 logs parkour
+```
+
+### 5. （可选）清理服务器端排行榜数据
+如果服务器端的 leaderboard.json 也有测试数据，可以：
+```bash
+# 备份当前数据
+cp leaderboard.json leaderboard.json.backup
+
+# 清空数据
+echo "[]" > leaderboard.json
+
+# 重启服务
+pm2 restart parkour
+```
+
+## 🧪 验证步骤
+
+### 1. 打开浏览器
+使用**新用户窗口/无痕模式**打开你的游戏网址
+
+### 2. 验证数据已清除
+打开浏览器控制台（F12），输入：
+```javascript
+localStorage.getItem('pixelRunner_highScore')
+```
+应该返回 `null` 或 `0`
+
+### 3. 检查日志（可选）
+```bash
+# 在服务器上查看应用日志
+pm2 logs parkour
+```
+你会看到：
+```
+[GameState] 检测到版本变更，清理旧数据...
+[StorageManager] 已清除数据: pixelRunner_xxx
+[GameState] 已清除 X 条旧数据
+```
+
+## 🔍 故障排查
+
+### 如果 git pull 有问题
+```bash
+# 检查当前状态
+git status
+
+# 查看当前分支
+git branch
+
+# 查看远程仓库地址
+git remote -v
+```
+
+### 如果 pm2 服务没有启动
+```bash
+# 查看所有服务
+pm2 list
+
+# 如果服务不在列表里，先启动服务
+# （假设项目根目录有 server.js）
+pm2 start server.js --name parkour
+
+# 保存 pm2 配置（防止重启丢失）
+pm2 save
+pm2 startup
+```
+
+## 📝 说明
+- **前端数据清理**：本次更新通过版本检测机制自动清理客户端 localStorage 的旧数据
+- **后端数据清理**：服务器端 leaderboard.json 需要你手动决定是否清理
