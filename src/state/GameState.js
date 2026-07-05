@@ -100,10 +100,17 @@ export class StorageManager {
   clearAllAppData() {
     try {
       const keysToRemove = [];
+      const keysToPreserve = new Set([
+        'pixelRunner_highScore',
+        'pixelRunner_playerNickname',
+        'pixelRunner_selectedSkin',
+        'pixelRunner_appVersion',
+        'pixelRunner_readAnnouncementIds'
+      ]);
       
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && key.startsWith(this.prefix)) {
+        if (key && key.startsWith(this.prefix) && !keysToPreserve.has(key)) {
           keysToRemove.push(key);
         }
       }

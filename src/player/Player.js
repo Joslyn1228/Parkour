@@ -71,7 +71,15 @@ export class Player {
 
   applySkin(colors) {
     if (!colors) return;
-    this.colors = { ...this.colors, ...colors };
+    this.colors = {
+      body: colors.body ?? this.colors.body,
+      head: colors.head ?? this.colors.head,
+      eyes: colors.eyes ?? this.colors.eyes,
+      shoes: colors.shoes ?? this.colors.shoes,
+      hat: colors.hat ?? this.colors.hat,
+      hatBrim: colors.hatBrim ?? this.colors.hatBrim,
+      hatBand: colors.hatBand ?? this.colors.hatBand
+    };
   }
 
   renderPreview(ctx, x, y) {

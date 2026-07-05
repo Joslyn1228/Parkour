@@ -137,7 +137,23 @@ export class SkinManager {
 
   setHighScore(highScore) {
     this.highScore = highScore;
+    this.restoreSelectedSkin();
+  }
+
+  restoreSelectedSkin() {
+    this.loadSelectedSkin();
     this.clampSelectedToUnlocked();
+  }
+
+  selectSkinById(skinId) {
+    const index = SkinManager.SKINS.findIndex(skin => skin.id === skinId);
+    if (index < 0 || !this.isUnlocked(SkinManager.SKINS[index])) {
+      return false;
+    }
+
+    this.selectedIndex = index;
+    this.saveSelectedSkin();
+    return true;
   }
 
   getUnlockedSkins() {
@@ -218,6 +234,5 @@ export class SkinManager {
     }
 
     this.selectedIndex = SkinManager.SKINS.findIndex(skin => skin.id === unlocked[0].id);
-    this.saveSelectedSkin();
   }
 }

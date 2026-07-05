@@ -36,6 +36,7 @@ app.use(express.json());
 app.use(express.static(__dirname));
 
 const DATA_FILE = path.join(__dirname, 'leaderboard.json');
+const ANNOUNCEMENTS_FILE = path.join(__dirname, 'announcements.json');
 
 function loadLeaderboard() {
   if (fs.existsSync(DATA_FILE)) {
@@ -66,6 +67,40 @@ function broadcastLeaderboard() {
 
 let leaderboard = loadLeaderboard();
 
+function loadAnnouncements() {
+  if (fs.existsSync(ANNOUNCEMENTS_FILE)) {
+    try {
+      const data = fs.readFileSync(ANNOUNCEMENTS_FILE, 'utf8');
+      const parsed = JSON.parse(data);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      console.error('读取公告失败:', error);
+      return [];
+    }
+  }
+  return [];
+}
+
+function saveAnnouncements(data) {
+  try {
+    fs.writeFileSync(ANNOUNCEMENTS_FILE, JSON.stringify(data, null, 2));
+    return true;
+  } catch (error) {
+    console.error('保存公告失败:', error);
+    return false;
+  }
+}
+
+function sortAnnouncements(list) {
+  return [...list].sort((a, b) => {
+    const dateA = Date.parse(a.date) || 0;
+    const dateB = Date.parse(b.date) || 0;
+    return dateB - dateA;
+  });
+}
+
+let announcements = loadAnnouncements();
+
 io.on('connection', (socket) => {
   if (NODE_ENV === 'development') {
     console.log('客户端已连接:', socket.id);
@@ -82,6 +117,41 @@ io.on('connection', (socket) => {
 
 app.get('/api/leaderboard', (req, res) => {
   res.json(leaderboard);
+});
+
+app.get('/api/announcements', (req, res) => {
+  announcements = loadAnnouncements();
+  res.json(sortAnnouncements(announcements));
+});
+
+app.post('/api/announcements', (req, res) => {
+  const adminKey = process.env.ADMIN_KEY;
+  if (adminKey && req.headers['x-admin-key'] !== adminKey) {
+    return res.status(401).json({ success: false, message: '无权限' });
+  }
+
+  const { id, title, content, date } = req.body;
+  if (!id || !title || !content) {
+    return res.status(400).json({ success: false, message: '缺少 id、title 或 content' });
+  }
+
+  announcements = loadAnnouncements();
+  const entry = {
+    id: String(id),
+    title: String(title).trim(),
+    content: String(content).trim(),
+    date: date || new Date().toISOString().slice(0, 10)
+  };
+
+  const existingIndex = announcements.findIndex(item => item.id === entry.id);
+  if (existingIndex !== -1) {
+    announcements[existingIndex] = entry;
+  } else {
+    announcements.unshift(entry);
+  }
+
+  saveAnnouncements(announcements);
+  res.json({ success: true, announcements: sortAnnouncements(announcements) });
 });
 
 app.post('/api/leaderboard', (req, res) => {

@@ -7,6 +7,7 @@
 import { GameEngine, RenderLayer } from './engine/GameEngine.js';
 import { Player } from './player/Player.js';
 import { SkinManager } from './player/SkinManager.js';
+import { AnnouncementManager } from './storage/AnnouncementManager.js';
 import { SpeedControl } from './speed/SpeedControl.js';
 import { ObstacleManager } from './obstacle/ObstacleManager.js';
 import { ItemManager } from './obstacle/ItemManager.js';
@@ -36,6 +37,7 @@ export class PixelRunnerGame {
     this.leaderboardUI = new LeaderboardUI(this.canvas, this.gameState.leaderboardManager);
     this.weatherManager = new WeatherManager(this.engine.width, this.engine.height);
     this.skinManager = new SkinManager(this.gameState.getHighScore());
+    this.announcementManager = new AnnouncementManager();
     this.previewPlayer = new Player(0, 0, this.audioManager);
     
     this.player = null;
@@ -94,7 +96,9 @@ export class PixelRunnerGame {
     this.setupLeaderboardSync();
     this.leaderboardUI.init();
     this.ui.setSkinManager(this.skinManager, this.previewPlayer);
+    this.ui.setAnnouncementManager(this.announcementManager);
     this.ui.setHighScore(this.gameState.getHighScore());
+    await this.announcementManager.fetchAnnouncements();
     this.engine.start();
   }
   
@@ -491,6 +495,8 @@ export class PixelRunnerGame {
     this.ui.setScore(data.score);
     this.ui.setHighScore(this.gameState.getHighScore());
     this.skinManager.setHighScore(this.gameState.getHighScore());
+    this.skinManager.restoreSelectedSkin();
+    this.ui.syncPreviewSkin();
     
     this.clearCoffeeBuffs();
     this.ui.setCrouchCount(0);
@@ -567,6 +573,7 @@ export class PixelRunnerGame {
     this.scene.reset();
     
     this.player = new Player(100, this.scene.getGroundY() - 48, this.audioManager);
+    this.skinManager.restoreSelectedSkin();
     this.player.applySkin(this.skinManager.getSelectedColors());
     this.player.onSlideStart = () => this.onPlayerSlideStart();
     this.engine.addEntity(this.player);
@@ -606,6 +613,8 @@ export class PixelRunnerGame {
     this.engine.clear();
     this.player = null;
     this.ui.setScore(0);
+    this.skinManager.restoreSelectedSkin();
+    this.ui.syncPreviewSkin();
   }
 
   /**

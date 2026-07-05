@@ -23,11 +23,16 @@ export class GameUI {
     this.guideTotalPages = 3;
     
     this.showAnnouncement = false;
-    this.announcements = [
-      { id: 1, title: '游戏更新公告', content: '新增道具系统！收集咖啡获得加速效果，收集苹果获得额外分数！', date: '2026-06-20' },
-      { id: 2, title: '排行榜上线', content: '多人实时排行榜功能已上线！快来挑战最高分吧！', date: '2026-06-15' },
-      { id: 3, title: '游戏发布', content: 'Pixel Runner 正式发布！感谢大家的支持！', date: '2026-06-10' }
-    ];
+    this.announcementManager = null;
+    this.announcementView = 'list';
+    this.selectedAnnouncement = null;
+    this.announcementPage = 0;
+    this.announcementsPerPage = 6;
+    this.announcementListButtons = [];
+    this.announcementCloseButton = { x: 0, y: 0, width: 160, height: 32 };
+    this.announcementBackButton = { x: 0, y: 0, width: 120, height: 32 };
+    this.announcementPrevButton = { x: 0, y: 0, width: 28, height: 28 };
+    this.announcementNextButton = { x: 0, y: 0, width: 28, height: 28 };
     this.mailButton = { x: 0, y: 0, width: 40, height: 40 };
     
     this.pixelFont = 'pixel';
@@ -53,6 +58,44 @@ export class GameUI {
   setSkinManager(skinManager, previewPlayer) {
     this.skinManager = skinManager;
     this.previewPlayer = previewPlayer;
+  }
+
+  setAnnouncementManager(announcementManager) {
+    this.announcementManager = announcementManager;
+  }
+
+  openAnnouncements() {
+    this.showAnnouncement = true;
+    this.announcementView = 'list';
+    this.selectedAnnouncement = null;
+    this.announcementPage = 0;
+  }
+
+  closeAnnouncements() {
+    this.showAnnouncement = false;
+    this.announcementView = 'list';
+    this.selectedAnnouncement = null;
+  }
+
+  openAnnouncementDetail(announcement) {
+    if (!announcement) return;
+    this.selectedAnnouncement = announcement;
+    this.announcementView = 'detail';
+    if (this.announcementManager) {
+      this.announcementManager.markAsRead(announcement.id);
+    }
+  }
+
+  backToAnnouncementList() {
+    this.announcementView = 'list';
+    this.selectedAnnouncement = null;
+  }
+
+  getAnnouncementList() {
+    if (this.announcementManager) {
+      return this.announcementManager.getAnnouncements();
+    }
+    return [];
   }
 
   syncPreviewSkin() {
@@ -110,6 +153,10 @@ export class GameUI {
     
     if (this.showGuide) {
       this.renderGuideScreen();
+    }
+
+    if (this.showAnnouncement) {
+      this.renderAnnouncementScreen();
     }
     
     this.ctx.restore();
@@ -180,6 +227,8 @@ export class GameUI {
   drawMailIcon(x, y) {
     this.mailButton.x = x;
     this.mailButton.y = y;
+    this.mailButton.width = 40;
+    this.mailButton.height = 32;
     
     this.ctx.fillStyle = '#6c5ce7';
     this.ctx.fillRect(x, y, 36, 28);
@@ -187,7 +236,8 @@ export class GameUI {
     this.ctx.fillStyle = '#a29bfe';
     this.ctx.fillRect(x + 2, y + 2, 32, 24);
     
-    this.ctx.fillStyle = '#6c5ce7';
+    this.ctx.strokeStyle = '#6c5ce7';
+    this.ctx.lineWidth = 2;
     this.ctx.beginPath();
     this.ctx.moveTo(x, y + 10);
     this.ctx.lineTo(x + 18, y + 22);
@@ -196,50 +246,220 @@ export class GameUI {
     
     this.ctx.fillStyle = '#ffffff';
     this.drawPixelText('@', x + 18, y + 18, 16);
+
+    if (this.announcementManager && this.announcementManager.hasUnread()) {
+      this.ctx.fillStyle = '#ff7675';
+      this.ctx.fillRect(x + 28, y - 2, 10, 10);
+      this.ctx.fillStyle = '#ffffff';
+      this.drawPixelText('!', x + 33, y + 4, 8);
+    }
   }
 
   renderAnnouncementScreen() {
+    if (this.announcementView === 'detail' && this.selectedAnnouncement) {
+      this.renderAnnouncementLetter(this.selectedAnnouncement);
+    } else {
+      this.renderAnnouncementList();
+    }
+  }
+
+  renderAnnouncementList() {
     const centerX = this.canvas.width / 2;
     const centerY = this.canvas.height / 2;
-    
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.92)';
+    const panelWidth = Math.min(520, this.canvas.width - 40);
+    const panelHeight = Math.min(420, this.canvas.height - 60);
+    const panelX = centerX - panelWidth / 2;
+    const panelY = centerY - panelHeight / 2;
+    const announcements = this.getAnnouncementList();
+    const totalPages = Math.max(1, Math.ceil(announcements.length / this.announcementsPerPage));
+    const page = Math.min(this.announcementPage, totalPages - 1);
+    const pageItems = announcements.slice(
+      page * this.announcementsPerPage,
+      page * this.announcementsPerPage + this.announcementsPerPage
+    );
+
+    this.announcementListButtons = [];
+
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.88)';
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    
-    this.ctx.fillStyle = '#6c5ce7';
-    this.ctx.fillRect(centerX - 250, centerY - 180, 500, 360);
-    
-    this.ctx.fillStyle = '#a29bfe';
-    this.ctx.fillRect(centerX - 245, centerY - 175, 490, 350);
-    
+
+    this.ctx.fillStyle = '#2d3436';
+    this.ctx.fillRect(panelX, panelY, panelWidth, panelHeight);
+    this.ctx.fillStyle = '#1a1a2e';
+    this.ctx.fillRect(panelX + 4, panelY + 4, panelWidth - 8, panelHeight - 8);
+
     this.ctx.fillStyle = '#ffeaa7';
-    this.drawPixelText('📧 公告栏', centerX, centerY - 150, 24);
-    
-    const startY = centerY - 100;
-    const entryHeight = 100;
-    
-    this.announcements.forEach((announcement, index) => {
-      const entryY = startY + index * entryHeight;
-      
-      this.ctx.fillStyle = '#2d3436';
-      this.ctx.fillRect(centerX - 220, entryY, 440, 80);
-      
-      this.ctx.fillStyle = '#00b894';
-      this.drawPixelText(announcement.title, centerX, entryY + 20, 14);
-      
-      this.ctx.fillStyle = '#dfe6e9';
-      this.drawPixelText(announcement.date, centerX - 180, entryY + 50, 10);
-      
-      const contentLines = this.wrapText(announcement.content, 40);
-      contentLines.forEach((line, lineIndex) => {
-        this.drawPixelText(line, centerX, entryY + 50 + lineIndex * 16, 12);
+    this.drawPixelText('收件箱', centerX, panelY + 28, 20);
+
+    this.ctx.fillStyle = '#74b9ff';
+    this.drawPixelText('点击标题阅读信件', centerX, panelY + 52, 10);
+
+    if (announcements.length === 0) {
+      this.ctx.fillStyle = '#b2bec3';
+      this.drawPixelText('暂无公告', centerX, centerY, 16);
+    } else {
+      const listTop = panelY + 72;
+      const entryHeight = 44;
+      const listWidth = panelWidth - 40;
+
+      pageItems.forEach((announcement, index) => {
+        const entryY = listTop + index * entryHeight;
+        const entryX = panelX + 20;
+        const isUnread = this.announcementManager && !this.announcementManager.isRead(announcement.id);
+
+        this.announcementListButtons.push({
+          id: announcement.id,
+          announcement,
+          x: entryX,
+          y: entryY,
+          width: listWidth,
+          height: entryHeight - 6
+        });
+
+        this.ctx.fillStyle = isUnread ? '#243447' : '#16213e';
+        this.ctx.fillRect(entryX, entryY, listWidth, entryHeight - 6);
+
+        if (isUnread) {
+          this.ctx.fillStyle = '#ff7675';
+          this.ctx.fillRect(entryX + 8, entryY + 14, 8, 8);
+        }
+
+        this.ctx.fillStyle = isUnread ? '#ffeaa7' : '#dfe6e9';
+        this.ctx.textAlign = 'left';
+        this.ctx.font = '12px "Press Start 2P", monospace';
+        this.ctx.fillText(announcement.title, entryX + (isUnread ? 22 : 12), entryY + 20);
+        this.ctx.textAlign = 'right';
+        this.ctx.fillStyle = '#fdcb6e';
+        this.ctx.font = '9px "Press Start 2P", monospace';
+        this.ctx.fillText(announcement.date || '', entryX + listWidth - 10, entryY + 20);
+        this.ctx.textAlign = 'center';
+        this.ctx.font = '16px "Press Start 2P", monospace';
       });
-    });
-    
-    this.ctx.fillStyle = '#ff6b6b';
-    this.ctx.fillRect(centerX - 80, centerY + 150, 160, 32);
-    
+    }
+
+    this.renderAnnouncementFooter(panelX, panelY, panelWidth, panelHeight, centerX, page, totalPages);
+  }
+
+  renderAnnouncementLetter(announcement) {
+    const centerX = this.canvas.width / 2;
+    const centerY = this.canvas.height / 2;
+    const panelWidth = Math.min(520, this.canvas.width - 40);
+    const panelHeight = Math.min(420, this.canvas.height - 60);
+    const panelX = centerX - panelWidth / 2;
+    const panelY = centerY - panelHeight / 2;
+    const letterX = panelX + 24;
+    const letterY = panelY + 56;
+    const letterWidth = panelWidth - 48;
+    const letterHeight = panelHeight - 130;
+
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.88)';
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+    this.ctx.fillStyle = '#2d3436';
+    this.ctx.fillRect(panelX, panelY, panelWidth, panelHeight);
+    this.ctx.fillStyle = '#1a1a2e';
+    this.ctx.fillRect(panelX + 4, panelY + 4, panelWidth - 8, panelHeight - 8);
+
     this.ctx.fillStyle = '#ffeaa7';
-    this.drawPixelText('关闭', centerX, centerY + 166, 12);
+    this.drawPixelText('信件', centerX, panelY + 28, 20);
+
+    this.ctx.fillStyle = '#f5e6c8';
+    this.ctx.fillRect(letterX, letterY, letterWidth, letterHeight);
+    this.ctx.strokeStyle = '#d4a574';
+    this.ctx.lineWidth = 2;
+    this.ctx.strokeRect(letterX, letterY, letterWidth, letterHeight);
+
+    this.ctx.fillStyle = '#c8956c';
+    this.ctx.fillRect(letterX + 12, letterY - 8, letterWidth - 24, 16);
+    this.ctx.fillStyle = '#e8c9a0';
+    this.ctx.beginPath();
+    this.ctx.moveTo(letterX + 12, letterY - 8);
+    this.ctx.lineTo(letterX + letterWidth / 2, letterY + 8);
+    this.ctx.lineTo(letterX + letterWidth - 12, letterY - 8);
+    this.ctx.closePath();
+    this.ctx.fill();
+
+    this.ctx.fillStyle = '#8b5a2b';
+    this.ctx.textAlign = 'left';
+    this.ctx.font = '11px "Press Start 2P", monospace';
+    this.ctx.fillText(`主题: ${announcement.title}`, letterX + 16, letterY + 28);
+    this.ctx.fillStyle = '#a67c52';
+    this.ctx.font = '9px "Press Start 2P", monospace';
+    this.ctx.fillText(`日期: ${announcement.date || ''}`, letterX + 16, letterY + 48);
+
+    this.ctx.strokeStyle = '#d4a574';
+    this.ctx.beginPath();
+    this.ctx.moveTo(letterX + 16, letterY + 58);
+    this.ctx.lineTo(letterX + letterWidth - 16, letterY + 58);
+    this.ctx.stroke();
+
+    const contentLines = this.wrapText(announcement.content, 24);
+    this.ctx.fillStyle = '#4a3728';
+    this.ctx.font = '10px "Press Start 2P", monospace';
+    contentLines.slice(0, 10).forEach((line, lineIndex) => {
+      this.ctx.fillText(line, letterX + 16, letterY + 82 + lineIndex * 18);
+    });
+    this.ctx.textAlign = 'center';
+    this.ctx.font = '16px "Press Start 2P", monospace';
+
+    const backX = panelX + 24;
+    const backY = panelY + panelHeight - 38;
+    this.announcementBackButton.x = backX;
+    this.announcementBackButton.y = backY;
+    this.announcementBackButton.width = 120;
+    this.announcementBackButton.height = 32;
+
+    this.ctx.fillStyle = '#636e72';
+    this.ctx.fillRect(backX, backY, 120, 32);
+    this.ctx.fillStyle = '#ffeaa7';
+    this.drawPixelText('返回', backX + 60, backY + 16, 12);
+
+    const closeX = centerX + 40;
+    this.announcementCloseButton.x = closeX;
+    this.announcementCloseButton.y = backY;
+    this.announcementCloseButton.width = 120;
+    this.announcementCloseButton.height = 32;
+
+    this.ctx.fillStyle = '#ff6b6b';
+    this.ctx.fillRect(closeX, backY, 120, 32);
+    this.ctx.fillStyle = '#ffeaa7';
+    this.drawPixelText('关闭', closeX + 60, backY + 16, 12);
+  }
+
+  renderAnnouncementFooter(panelX, panelY, panelWidth, panelHeight, centerX, page, totalPages) {
+    const navY = panelY + panelHeight - 78;
+    const closeY = panelY + panelHeight - 38;
+    const closeX = centerX - 80;
+
+    this.announcementCloseButton.x = closeX;
+    this.announcementCloseButton.y = closeY;
+    this.announcementCloseButton.width = 160;
+    this.announcementCloseButton.height = 32;
+
+    if (totalPages > 1) {
+      const prevX = panelX + 24;
+      const nextX = panelX + panelWidth - 52;
+
+      this.announcementPrevButton.x = prevX;
+      this.announcementPrevButton.y = navY;
+      this.announcementNextButton.x = nextX;
+      this.announcementNextButton.y = navY;
+
+      this.ctx.fillStyle = page > 0 ? '#636e72' : '#2d3436';
+      this.ctx.fillRect(prevX, navY, 28, 28);
+      this.ctx.fillStyle = page < totalPages - 1 ? '#636e72' : '#2d3436';
+      this.ctx.fillRect(nextX, navY, 28, 28);
+
+      this.ctx.fillStyle = '#ffeaa7';
+      this.drawPixelText('<', prevX + 14, navY + 15, 14);
+      this.drawPixelText('>', nextX + 14, navY + 15, 14);
+      this.drawPixelText(`${page + 1}/${totalPages}`, centerX, navY + 15, 12);
+    }
+
+    this.ctx.fillStyle = '#ff6b6b';
+    this.ctx.fillRect(closeX, closeY, 160, 32);
+    this.ctx.fillStyle = '#ffeaa7';
+    this.drawPixelText('关闭', centerX, closeY + 16, 12);
   }
 
   wrapText(text, maxLength) {
@@ -869,6 +1089,31 @@ export class GameUI {
         }
         return;
       }
+    } else if (this.showAnnouncement) {
+      if (this.announcementView === 'detail') {
+        if (key === 'Escape') {
+          this.backToAnnouncementList();
+        }
+        return;
+      }
+
+      const announcements = this.getAnnouncementList();
+      const totalPages = Math.max(1, Math.ceil(announcements.length / this.announcementsPerPage));
+
+      if (key === 'ArrowLeft' || key === 'a' || key === 'A') {
+        if (this.announcementPage > 0) {
+          this.announcementPage--;
+        }
+        return;
+      } else if (key === 'ArrowRight' || key === 'd' || key === 'D') {
+        if (this.announcementPage < totalPages - 1) {
+          this.announcementPage++;
+        }
+        return;
+      } else if (key === 'Escape') {
+        this.closeAnnouncements();
+        return;
+      }
     } else if (this.skinManager) {
       if (key === 'ArrowLeft' || key === 'a' || key === 'A') {
         this.skinManager.selectPrevious();
@@ -881,6 +1126,10 @@ export class GameUI {
       }
     }
     
+    if (this.showAnnouncement) {
+      return;
+    }
+
     if (key === 'Enter') {
       if (typeof this.onStart === 'function') {
         this.onStart();
@@ -940,15 +1189,59 @@ export class GameUI {
     
     if (x >= this.mailButton.x && x <= this.mailButton.x + this.mailButton.width &&
         y >= this.mailButton.y && y <= this.mailButton.y + this.mailButton.height) {
-      this.showAnnouncement = !this.showAnnouncement;
-    }
-    
-    if (this.showAnnouncement) {
-      const centerX = this.canvas.width / 2;
-      if (x >= centerX - 80 && x <= centerX + 80 &&
-          y >= centerY + 150 && y <= centerY + 182) {
-        this.showAnnouncement = false;
+      if (this.showAnnouncement) {
+        this.closeAnnouncements();
+      } else {
+        this.openAnnouncements();
       }
+      return;
+    }
+
+    if (this.showAnnouncement) {
+      const closeBtn = this.announcementCloseButton;
+      if (x >= closeBtn.x && x <= closeBtn.x + closeBtn.width &&
+          y >= closeBtn.y && y <= closeBtn.y + closeBtn.height) {
+        this.closeAnnouncements();
+        return;
+      }
+
+      if (this.announcementView === 'detail') {
+        const backBtn = this.announcementBackButton;
+        if (x >= backBtn.x && x <= backBtn.x + backBtn.width &&
+            y >= backBtn.y && y <= backBtn.y + backBtn.height) {
+          this.backToAnnouncementList();
+        }
+        return;
+      }
+
+      for (const item of this.announcementListButtons) {
+        if (x >= item.x && x <= item.x + item.width &&
+            y >= item.y && y <= item.y + item.height) {
+          this.openAnnouncementDetail(item.announcement);
+          return;
+        }
+      }
+
+      const prevBtn = this.announcementPrevButton;
+      const nextBtn = this.announcementNextButton;
+      const announcements = this.getAnnouncementList();
+      const totalPages = Math.max(1, Math.ceil(announcements.length / this.announcementsPerPage));
+
+      if (x >= prevBtn.x && x <= prevBtn.x + prevBtn.width &&
+          y >= prevBtn.y && y <= prevBtn.y + prevBtn.height &&
+          this.announcementPage > 0) {
+        this.announcementPage--;
+        return;
+      }
+
+      if (x >= nextBtn.x && x <= nextBtn.x + nextBtn.width &&
+          y >= nextBtn.y && y <= nextBtn.y + nextBtn.height &&
+          this.announcementPage < totalPages - 1) {
+        this.announcementPage++;
+        return;
+      }
+
+      return;
     }
     
     if (this.showGuide) {
